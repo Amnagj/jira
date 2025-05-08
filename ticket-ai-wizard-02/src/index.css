@@ -1,0 +1,171 @@
+
+@import url('https://fonts.googleapis.com/css2?family=Raleway:wght@300;400;500;600;700&family=Source+Sans+3:wght@300;400;500;600;700&display=swap');
+@import './styles/theme.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222 47% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    --primary: 221 83% 53%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
+
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+
+    --accent: 221 83% 53%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 221 83% 53%;
+    --radius: 1rem;
+  }
+
+  .dark {
+    --background: 222 65% 8%;
+    --foreground: 210 40% 98%;
+
+    --card: 222 47% 11%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222 65% 8%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 221 83% 53%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 222 47% 12%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 222 47% 15%;
+    --muted-foreground: 215 20% 85%;
+
+    --accent: 221 83% 53%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 222 47% 20%;
+    --input: 222 47% 20%;
+    --ring: 221 83% 53%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  
+  html {
+    font-family: 'Source Sans 3', sans-serif;
+    @apply scroll-smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    min-height: 100vh;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Raleway', sans-serif;
+    font-weight: 600;
+  }
+}
+
+/* Chat bubbles */
+@layer components {
+  .ai-chat-bubble {
+    @apply border backdrop-blur-sm transition-colors;
+  }
+
+  .dark .ai-chat-bubble {
+    @apply bg-gradient-to-br from-blue-600/20 to-blue-800/30 border-blue-400/10;
+  }
+
+  .light .ai-chat-bubble {
+    @apply bg-gradient-to-br from-blue-100 to-blue-50 border-blue-200/40;
+  }
+
+  .user-chat-bubble {
+    @apply border backdrop-blur-sm transition-colors;
+  }
+
+  .dark .user-chat-bubble {
+    @apply bg-gradient-to-br from-gray-800/40 to-slate-900/40 border-white/10;
+  }
+
+  .light .user-chat-bubble {
+    @apply bg-gradient-to-br from-gray-100 to-slate-50 border-gray-200/40;
+  }
+}
+
+/* Utility classes */
+@layer utilities {
+  .hover-scale {
+    @apply transition-transform duration-200 hover:scale-105;
+  }
+
+  .animate-float {
+    animation: float 4s ease-in-out infinite;
+  }
+
+  .star-shine {
+    @apply relative overflow-hidden;
+  }
+
+  .star-shine::after {
+    content: '';
+    position: absolute;
+    top: -100%;
+    left: -100%;
+    width: 50%;
+    height: 50%;
+    background: linear-gradient(
+      to bottom right,
+      rgba(255, 255, 255, 0) 0%,
+      rgba(255, 255, 255, 0.2) 50%,
+      rgba(255, 255, 255, 0) 100%
+    );
+    transform: rotate(45deg);
+    animation: shine 3s infinite;
+  }
+
+  .cosmic-pulse {
+    animation: cosmic-pulse 3s infinite alternate ease-in-out;
+  }
+
+  .space-mask {
+    mask-image: radial-gradient(circle at center, black 40%, transparent 70%);
+  }
+  
+  /* Title gradient */
+  .text-gradient {
+    @apply bg-clip-text text-transparent;
+  }
+
+  .dark .text-gradient {
+    @apply bg-gradient-to-r from-blue-300 via-indigo-200 to-purple-300;
+  }
+
+  .light .text-gradient {
+    @apply bg-gradient-to-r from-blue-600 via-indigo-500 to-purple-600;
+  }
+}
