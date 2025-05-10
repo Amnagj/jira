@@ -95,10 +95,7 @@ const MessageComponent = ({ message }: { message: Message }) => {
   );
 };  return (
     <div className={cn(
-      "flex flex-col h-[450px] rounded-xl overflow-hidden border",
-      isDark 
-        ? "bg-slate-900/95 border-slate-800" 
-        : "bg-gray-50 border-gray-200"
+      
     )}>
       
       

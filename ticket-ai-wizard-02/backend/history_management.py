@@ -30,6 +30,8 @@ def connect_to_mongodb():
             logger.info(f"Collection {COLLECTION_NAME} créée")
 
 
+
+
         # Vérifier que l'on peut accéder à la collection
         test_count = collection.count_documents({})
         logger.info(f"Connexion à MongoDB (historique) établie avec succès. {test_count} documents existants.")
@@ -38,9 +40,11 @@ def connect_to_mongodb():
         logger.error(f"Erreur de connexion à MongoDB: {e}")
         # Ne pas lever d'exception, mais retourner None
         return None, None
-def add_history_item(user_id, query_text, result, ticket_ids=None):
+def add_history_item(user_id, query_text, result, ticket_ids=None, similarity_score=None, search_time=None):
     try:
         client, collection = connect_to_mongodb()
+        db = client["jira"]
+        history_collection = db["Historique_Messages"]
         # Vérifier si la connexion a réussi
         if client is None or collection is None:
             logger.error("Échec de connexion à MongoDB dans add_history_item")
@@ -51,7 +55,9 @@ def add_history_item(user_id, query_text, result, ticket_ids=None):
        
         # S'assurer que user_id est une chaîne
         user_id = str(user_id)
+       
         logger.info(f"Ajout à l'historique pour l'utilisateur {user_id}, query: {query_text[:50]}...")
+       
         # Convertir les ObjectId en str pour tous les ticket_ids s'ils existent
         if ticket_ids:
             # Vérifier si c'est une liste de ObjectId et convertir si nécessaire
@@ -67,7 +73,7 @@ def add_history_item(user_id, query_text, result, ticket_ids=None):
         if isinstance(result, dict) and "_id" in result and isinstance(result["_id"], ObjectId):
             result["_id"] = str(result["_id"])
        
-        # Créer l'élément d'historique
+        # Créer l'élément d'historique avec les nouveaux champs
         history_item = {
             "id": str(uuid.uuid4()),
             "userId": user_id,
@@ -75,19 +81,21 @@ def add_history_item(user_id, query_text, result, ticket_ids=None):
             "result": result if isinstance(result, str) else str(result),
             "ticketIds": ticket_ids if ticket_ids else [],
             "timestamp": int(datetime.datetime.now().timestamp() * 1000),
-            "visible": True
+            "visible": True,
+            "similarity_score": similarity_score,  # Nouveau champ pour le taux de similarité
+            "search_time": search_time  # Nouveau champ pour le temps de recherche
         }
-        # Vérifier si cette requête existe déjà (pour éviter les doublons)
-        # Utiliser les 3 dernières minutes comme fenêtre de déduplication
+       
         three_mins_ago = int((datetime.datetime.now() - datetime.timedelta(minutes=3)).timestamp() * 1000)
         existing = collection.find_one({
             "userId": user_id,
             "queryText": query_text,
             "timestamp": {"$gt": three_mins_ago}
         })
+       
         if existing:
             logger.info(f"Requête similaire trouvée dans les 3 dernières minutes. Pas d'ajout à l'historique.")
-            existing["_id"] = str(existing["_id"])  # Convertir ObjectId en str pour la réponse
+            existing["_id"] = str(existing["_id"]) # Convertir ObjectId en str pour la réponse
             return {
                 "status": "success",
                 "message": "Requête déjà présente dans l'historique récent",
@@ -245,19 +253,20 @@ def json_compatible_result(obj):
                 obj[i] = json_compatible_result(item)
     return obj
 
+
 def get_history_item_details(item_id):
     """
     Récupère les détails d'un élément d'historique y compris les tickets associés.
-    
+   
     Args:
         item_id (str): Identifiant de l'élément d'historique
-        
+       
     Returns:
         dict: Résultat contenant l'élément d'historique et les tickets associés
     """
     client_access = None
     client_jira = None
-    
+   
     try:
         # Connexion à la base Access pour l'historique
         client_access, history_collection = connect_to_mongodb()
@@ -267,13 +276,13 @@ def get_history_item_details(item_id):
                 "status": "error",
                 "message": "Échec de la connexion à MongoDB"
             }
-        
+       
         # Récupérer l'élément d'historique par son ID
         history_item = None
-        
+       
         # Essayer d'abord avec le champ 'id'
         history_item = history_collection.find_one({"id": item_id})
-        
+       
         # Si non trouvé, essayer avec le champ '_id' au cas où un ObjectId a été fourni
         if not history_item and len(item_id) == 24 and all(c in '0123456789abcdefABCDEF' for c in item_id):
             try:
@@ -281,28 +290,28 @@ def get_history_item_details(item_id):
                 history_item = history_collection.find_one({"_id": obj_id})
             except Exception as e:
                 logger.warning(f"Échec de conversion en ObjectId: {e}")
-        
+       
         if not history_item:
             logger.warning(f"Élément d'historique non trouvé: {item_id}")
             return {
                 "status": "error",
                 "message": "Élément d'historique non trouvé"
             }
-        
+       
         # Convertir les ObjectId en str pour JSON
         history_item = json_compatible_result(history_item)
-        
+       
         # Récupérer les IDs des tickets associés
         ticket_ids = history_item.get("ticketIds", [])
         tickets = []
-        
+       
         if ticket_ids:
             logger.info(f"Recherche détaillée pour {len(ticket_ids)} tickets: {ticket_ids}")
             try:
                 # Connexion à la base jira pour les tickets
                 client_jira = MongoClient(MONGO_URI)
                 tickets_collection = client_jira["jira"]["tickets"]
-                
+               
                 for ticket_id in ticket_ids:
                     # Nouvelle stratégie - recherche multiple en une seule requête
                     query = {
@@ -313,12 +322,12 @@ def get_history_item_details(item_id):
                             {"ticketIds": ticket_id}  # Au cas où il y a un champ ticketIds dans les tickets
                         ]
                     }
-                    
+                   
                     # Si le format est de type palmint, ajouter une recherche regex
                     if isinstance(ticket_id, str) and 'palmint' in ticket_id.lower():
                         query["$or"].append({"_id": {"$regex": f".*{ticket_id}.*", "$options": "i"}})
                         query["$or"].append({"key": {"$regex": f".*{ticket_id}.*", "$options": "i"}})
-                    
+                   
                     # Si le format pourrait être un ObjectId, essayer cette conversion
                     if isinstance(ticket_id, str) and len(ticket_id) == 24 and all(c in '0123456789abcdefABCDEF' for c in ticket_id):
                         try:
@@ -326,11 +335,11 @@ def get_history_item_details(item_id):
                             query["$or"].append({"_id": obj_id})
                         except Exception as e:
                             logger.warning(f"Échec de conversion en ObjectId: {e}")
-                    
+                   
                     # Exécuter la requête optimisée
                     logger.debug(f"Exécution de la requête: {query}")
                     ticket = tickets_collection.find_one(query)
-                    
+                   
                     if ticket:
                         logger.info(f"Ticket trouvé: {ticket.get('_id')}")
                         ticket = json_compatible_result(ticket)
@@ -356,13 +365,13 @@ def get_history_item_details(item_id):
             finally:
                 if client_jira:
                     client_jira.close()
-        
+       
         return {
             "status": "success",
             "history_item": history_item,
             "tickets": tickets
         }
-    
+   
     except Exception as e:
         logger.error(f"Erreur dans get_history_item_details: {e}")
         return {
@@ -373,6 +382,7 @@ def get_history_item_details(item_id):
         if client_access:
             client_access.close()
 
+
 def debug_ticket_id(ticket_id, tickets_collection):
     """
     Fonction de débogage pour tester différentes méthodes de recherche d'ID de ticket.
@@ -382,7 +392,7 @@ def debug_ticket_id(ticket_id, tickets_collection):
         "methods_tried": [],
         "ticket_found": False
     }
-    
+   
     # Méthode 1: Recherche directe par _id (comme chaîne)
     debug_info["methods_tried"].append({"method": "direct_id", "query": {"_id": ticket_id}})
     ticket = tickets_collection.find_one({"_id": ticket_id})
@@ -391,11 +401,11 @@ def debug_ticket_id(ticket_id, tickets_collection):
         debug_info["found_method"] = "direct_id"
         debug_info["ticket_sample"] = {"_id": str(ticket.get("_id")), "autres_champs": "..."}
         return debug_info
-    
+   
     # Méthode 2: Recherche spécifique pour les IDs de type "palmint"
     if isinstance(ticket_id, str) and 'palmint' in ticket_id.lower():
         debug_info["methods_tried"].append({"method": "palmint_check", "info": "ID contient 'palmint'"})
-    
+   
     # Méthode 3: Avec ObjectId si format valide
     if isinstance(ticket_id, str) and len(ticket_id) == 24 and all(c in '0123456789abcdefABCDEF' for c in ticket_id):
         try:
@@ -409,7 +419,7 @@ def debug_ticket_id(ticket_id, tickets_collection):
                 return debug_info
         except Exception as e:
             debug_info["methods_tried"].append({"method": "objectid", "error": str(e)})
-    
+   
     # Méthode 4: Recherche par champ alternatif "ID"
     debug_info["methods_tried"].append({"method": "ID_field", "query": {"ID": ticket_id}})
     ticket = tickets_collection.find_one({"ID": ticket_id})
@@ -418,7 +428,7 @@ def debug_ticket_id(ticket_id, tickets_collection):
         debug_info["found_method"] = "ID_field"
         debug_info["ticket_sample"] = {"_id": str(ticket.get("_id")), "ID": ticket.get("ID"), "autres_champs": "..."}
         return debug_info
-    
+   
     # Méthode 5: Recherche par champ "ticket_id"
     debug_info["methods_tried"].append({"method": "ticket_id_field", "query": {"ticket_id": ticket_id}})
     ticket = tickets_collection.find_one({"ticket_id": ticket_id})
@@ -427,7 +437,7 @@ def debug_ticket_id(ticket_id, tickets_collection):
         debug_info["found_method"] = "ticket_id_field"
         debug_info["ticket_sample"] = {"_id": str(ticket.get("_id")), "ticket_id": ticket.get("ticket_id"), "autres_champs": "..."}
         return debug_info
-    
+   
     # Exploration de la structure de la collection tickets
     random_tickets = list(tickets_collection.find().limit(3))
     if random_tickets:
@@ -435,5 +445,9 @@ def debug_ticket_id(ticket_id, tickets_collection):
         for t in random_tickets:
             sample_fields.append({k: str(v) if isinstance(v, ObjectId) else v for k, v in list(t.items())[:5]})
         debug_info["collection_sample"] = sample_fields
-    
+   
     return debug_info
+
+
+
+

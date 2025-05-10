@@ -39,6 +39,10 @@ def main(fichier_excel):
     for index, row in df_propre.iterrows():
         print(f" Traitement du ticket {index+1}/{len(df_propre)}...")
         ticket_id = row.get('key', '') # Utiliser l'ID original du fichier
+        ticket_priority = row.get('priority', '') # Utiliser l'ID original du fichier
+        ticket_type = row.get('type', '') # Utiliser l'ID original du fichier
+        ticket_client_project = row.get('client_project', '') # Utiliser l'ID original du fichier
+
         ticket_json = {}
         for col_name, value in row.items():
             if pd.notna(value):
@@ -69,15 +73,16 @@ def main(fichier_excel):
                 "Problématique": problem,
                 "Solution": solution,
                 "Mots-clés techniques": keywords,
+                "ticket_priority": ticket_priority,
+                "ticket_type": ticket_type,
+                "ticket_client_project": ticket_client_project,
                 "Texte brut": ticket_text
             })
     
     # Convertir en DataFrame et sauvegarder dans un fichier CSV
     if extracted_data:
         df_extracted = pd.DataFrame(extracted_data)
-        output_file = "résultat_résumé_tickets.csv"
-        df_extracted.to_csv(output_file, index=False)
-        print(f" Données extraites sauvegardées dans {output_file}")
+        
         
         # Étape 3 : Stocker dans MongoDB
         print("\n Stockage des tickets dans MongoDB...")
@@ -86,7 +91,10 @@ def main(fichier_excel):
                 "ID": row["ID"],
                 "problem": row["Problématique"],
                 "solution": row["Solution"],
-                "keywords": row["Mots-clés techniques"]
+                "keywords": row["Mots-clés techniques"],
+                "ticket_priority": row["ticket_priority"],
+                "ticket_type": row["ticket_type"],
+                "ticket_client_project": row["ticket_client_project"],
             }
             store_ticket_in_mongo(ticket_data)
             stats["processed"] += 1

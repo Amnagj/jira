@@ -20,7 +20,6 @@ import {
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/hooks/useTheme";
 import { motion, AnimatePresence } from "framer-motion";
-import { TicketLoadingState } from "./TicketLoadingState";
 
 interface TicketDetailsProps {
   ticketData: Record<string, any> | null;
@@ -43,16 +42,19 @@ export const TicketDetails = ({ ticketData, loading }: TicketDetailsProps) => {
   useEffect(() => {
     if (displayedTicketPairs.length > 0 && loading) {
       const interval = setInterval(() => {
-        setCurrentPairIndex((prev) =>
-          prev + 1 < displayedTicketPairs.length ? prev + 1 : 0
-        );
-      }, 7000); // 7 secondes
-
+        if (currentPairIndex + 1 < displayedTicketPairs.length) {
+          setCurrentPairIndex(currentPairIndex + 1);
+          // Ajouter les champs de la paire actuelle aux champs visibles
+          if (currentPairIndex < displayedTicketPairs.length) {
+            const fieldsToAdd = displayedTicketPairs[currentPairIndex].map(field => field);
+            setVisibleFields(prevFields => [...prevFields, ...fieldsToAdd]);
+          }
+        }
+      }, 3000); // Accéléré à 3 secondes pour une meilleure UX
       return () => clearInterval(interval);
     }
-  }, [displayedTicketPairs, loading]);
+  }, [displayedTicketPairs, loading, currentPairIndex]);
 
-  // Choisir les champs à afficher lorsque les données changent
   useEffect(() => {
     if (ticketData) {
       // Définir les champs prioritaires avec leurs noms d'affichage
@@ -80,32 +82,45 @@ export const TicketDetails = ({ ticketData, loading }: TicketDetailsProps) => {
           ticketData[field.key] !== ""
       );
 
-      setVisibleFields(availableFields);
+      // Commencer avec les 2 premiers champs (clé et résumé) comme visibles
+      const initialVisibleFields = availableFields.slice(0, 2);
+      setVisibleFields(initialVisibleFields);
 
-      // On garde toujours "summary" en premier et pleine largeur
-
-      let ticketPairs: Array<Array<{ key: string; displayName: string }>> = [];
-      // On met d'abord la clé du ticket si elle existe
+      // Organisation améliorée des champs pour un affichage plus équilibré
+      let ticketGroups: Array<Array<{ key: string; displayName: string }>> = [];
+      
+      // La clé du ticket en premier
       const keyField = availableFields.find((field) => field.key === "key");
       if (keyField) {
-        ticketPairs.push([keyField]); // en haut sur toute la largeur
+        ticketGroups.push([keyField]);
       }
+      
       // Ensuite le résumé
       const summaryField = availableFields.find(
         (field) => field.key === "summary"
       );
       if (summaryField) {
-        ticketPairs.push([summaryField]);
+        ticketGroups.push([summaryField]);
       }
-      // Puis tous les autres champs un par un
+      
+      // Regrouper les champs restants en paires mais de manière plus équilibrée
       const otherFields = availableFields.filter(
         (field) => field.key !== "key" && field.key !== "summary"
       );
-      for (let i = 0; i < otherFields.length; i++) {
-        ticketPairs.push([otherFields[i]]);
+      
+      // Grouper par paires pour un affichage en grille uniforme
+      for (let i = 0; i < otherFields.length; i += 2) {
+        const pair = [];
+        pair.push(otherFields[i]);
+        
+        if (i + 1 < otherFields.length) {
+          pair.push(otherFields[i + 1]);
+        }
+        ticketGroups.push(pair);
       }
-
-      setDisplayedTicketPairs(ticketPairs);
+      
+      setDisplayedTicketPairs(ticketGroups);
+      setCurrentPairIndex(0);
     } else {
       setVisibleFields([]);
       setDisplayedTicketPairs([]);
@@ -230,6 +245,7 @@ export const TicketDetails = ({ ticketData, loading }: TicketDetailsProps) => {
       ? "text-green-400 bg-green-900/30"
       : "text-green-700 bg-green-200";
   };
+
   // Fonction pour obtenir la couleur de statut
   const getStatusColor = (status: string) => {
     const statusLower = status.toLowerCase();
@@ -239,16 +255,16 @@ export const TicketDetails = ({ ticketData, loading }: TicketDetailsProps) => {
       statusLower.includes("resolved")
     ) {
       return isDark
-        ? "text-green-400 bg-green-900/30"
-        : "text-green-700 bg-green-200";
+        ? "text-blue-300 bg-blue-900/40" // Bleu pour done (thème sombre)
+        : "text-blue-700 bg-blue-100"; // Bleu pour done (thème clair)
     } else if (
       statusLower.includes("progress") ||
       statusLower.includes("cours") ||
       statusLower.includes("open")
     ) {
       return isDark
-        ? "text-blue-400 bg-blue-900/30"
-        : "text-blue-700 bg-blue-200";
+        ? "text-cyan-400 bg-cyan-900/30" // Cyan pour en cours (thème sombre)
+        : "text-cyan-700 bg-cyan-100"; // Cyan pour en cours (thème clair)
     } else if (
       statusLower.includes("blocked") ||
       statusLower.includes("bloqué")
@@ -256,12 +272,11 @@ export const TicketDetails = ({ ticketData, loading }: TicketDetailsProps) => {
       return isDark ? "text-red-400 bg-red-900/30" : "text-red-700 bg-red-200";
     }
     return isDark
-      ? "text-slate-400 bg-slate-800/30"
-      : "text-slate-700 bg-slate-200";
+      ? "text-blue-400 bg-blue-900/20" // Default bleu (thème sombre)
+      : "text-blue-700 bg-blue-50"; // Default bleu (thème clair)
   };
-  
 
-  // Fonction pour formater la valeur d'un champ
+  // Fonction pour formater la valeur d'un champ avec amélioration de la troncature
   const formatFieldValue = (key: string, value: string) => {
     if (key === "priority") {
       return (
@@ -274,6 +289,7 @@ export const TicketDetails = ({ ticketData, loading }: TicketDetailsProps) => {
         </span>
       );
     }
+    
     if (key === "status") {
       return (
         <span
@@ -285,6 +301,7 @@ export const TicketDetails = ({ ticketData, loading }: TicketDetailsProps) => {
         </span>
       );
     }
+    
     // Pour les dates, formater pour une meilleure lisibilité
     if (key === "created_date" || key === "updated_date") {
       try {
@@ -303,28 +320,44 @@ export const TicketDetails = ({ ticketData, loading }: TicketDetailsProps) => {
         // En cas d'échec, retourner la valeur d'origine
       }
     }
+
+    // Pour les textes longs, amélioration de la troncature avec tooltip
+    if (typeof value === 'string' && value.length > 150) {
+      return (
+        <div className="relative group">
+          <div className="truncate max-w-full">
+            {value.substring(0, 150)}
+            <span className="text-blue-500">...</span>
+          </div>
+          <div className="hidden group-hover:block absolute z-50 p-2 mt-1 rounded-lg shadow-lg max-w-md bg-gray-900 text-white text-sm">
+            {value}
+          </div>
+        </div>
+      );
+    }
+    
     return value;
   };
 
   if (!loading && !ticketData) return null;
-
-  // Nouveau design moderne et créatif pour l'affichage des détails du ticket
+  
+  // Design modernisé et unifié pour l'affichage des détails du ticket
   return (
-    <div className="w-full mb-8">
+    <div className="w-full mb-4">
       {ticketData && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
-          className={cn("max-w-4xl mx-auto", loading ? "opacity-90" : "")}
+          className={cn("w-full mx-auto", loading ? "opacity-90" : "")}
         >
           {/* En-tête avec chronomètre intégré */}
           <div
             className={cn(
               "sticky top-2 z-10 backdrop-blur-md rounded-xl mb-4 py-3 px-4",
               isDark
-                ? "bg-slate-900/80 text-blue-200 border border-slate-800"
-                : "bg-white/90 text-blue-700 border border-slate-100"
+                ? "bg-blue-950/80 text-blue-100 border border-blue-900/50"
+                : "bg-blue-50/90 text-blue-800 border border-blue-100"
             )}
           >
             <div className="flex items-center justify-between">
@@ -355,7 +388,6 @@ export const TicketDetails = ({ ticketData, loading }: TicketDetailsProps) => {
                     >
                       Analyse en cours
                     </motion.span>
-
                   </div>
                 ) : (
                   <div className="flex items-center gap-2">
@@ -405,62 +437,44 @@ export const TicketDetails = ({ ticketData, loading }: TicketDetailsProps) => {
           </div>
 
           {/* Contenu des détails du ticket avec animation */}
-          <AnimatePresence mode="wait">
-            {displayedTicketPairs.length > 0 && (
+          <AnimatePresence>
+            {isExpanded && visibleFields.length > 0 && (
               <motion.div
-                key={`pair-${currentPairIndex}`}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.5 }}
-                className="grid gap-4 mb-4 grid-cols-1"
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                className="overflow-hidden"
               >
-                {displayedTicketPairs[currentPairIndex].map(
-                  (field, fieldIndex) => {
-                    const isFullWidth =
-                      field.key === "summary" || field.key === "key";
-                    return (
+                {/* Champs clé et résumé sur toute la largeur */}
+                <div className="grid gap-4 mb-4 grid-cols-1">
+                  {visibleFields
+                    .filter(field => field.key === "key" || field.key === "summary")
+                    .map((field, fieldIndex) => (
                       <motion.div
-                        key={field.key}
+                        key={`${field.key}-${fieldIndex}`} 
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.3, delay: fieldIndex * 0.05 }}
                         className={cn(
                           "p-4 rounded-xl shadow-sm",
-                          isFullWidth ? "md:col-span-2" : "",
                           isDark
-                            ? "bg-blue-900/10 border border-blue-800/30"
-                            : "bg-white border border-blue-100/80",
-                          isFullWidth && isDark
                             ? "bg-gradient-to-br from-blue-900/20 to-blue-800/40 border border-blue-800/20"
-                            : isFullWidth
-                            ? "bg-gradient-to-br from-blue-50 to-blue-100/50 border border-blue-200/30"
-                            : ""
+                            : "bg-gradient-to-br from-blue-50 to-blue-100/50 border border-blue-200/30"
                         )}
                       >
                         <div className="flex items-center gap-3">
                           <div
                             className={cn(
                               "w-7 h-7 rounded-lg flex-shrink-0 flex items-center justify-center",
-                              isDark ? "bg-blue-800/50" : "bg-blue-100",
-                              isFullWidth && isDark
-                                ? "bg-blue-700/50"
-                                : isFullWidth
-                                ? "bg-blue-200"
-                                : ""
+                              isDark ? "bg-blue-700/50" : "bg-blue-200"
                             )}
                           >
                             {getFieldIcon(field.key)}
                           </div>
                           <div
                             className={cn(
-                              "text-sm",
-                              isDark ? "text-blue-300" : "text-blue-700",
-                              isFullWidth && isDark
-                                ? "text-blue-200 font-medium"
-                                : isFullWidth
-                                ? "text-blue-700 font-medium"
-                                : ""
+                              "text-sm font-medium",
+                              isDark ? "text-blue-200" : "text-blue-700"
                             )}
                           >
                             {field.displayName}
@@ -478,14 +492,61 @@ export const TicketDetails = ({ ticketData, loading }: TicketDetailsProps) => {
                           )}
                         </div>
                       </motion.div>
-                    );
-                  }
-                )}
+                    ))}
+                </div>
+
+                {/* Autres champs en grille 2x2 */}
+                <div className="grid gap-4 mb-4 grid-cols-1 md:grid-cols-2">
+                  {visibleFields
+                    .filter(field => field.key !== "key" && field.key !== "summary")
+                    .map((field, fieldIndex) => (
+                      <motion.div
+                        key={`${field.key}-${fieldIndex}`}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3, delay: fieldIndex * 0.05 }}
+                        className={cn(
+                          "p-4 rounded-xl shadow-sm h-full",
+                          isDark
+                            ? "bg-blue-900/10 border border-blue-800/30"
+                            : "bg-white border border-blue-100/80"
+                        )}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div
+                            className={cn(
+                              "w-7 h-7 rounded-lg flex-shrink-0 flex items-center justify-center",
+                              isDark ? "bg-blue-800/50" : "bg-blue-100"
+                            )}
+                          >
+                            {getFieldIcon(field.key)}
+                          </div>
+                          <div
+                            className={cn(
+                              "text-sm",
+                              isDark ? "text-blue-300" : "text-blue-700"
+                            )}
+                          >
+                            {field.displayName}
+                          </div>
+                        </div>
+                        <div
+                          className={cn(
+                            "mt-3 p-3 rounded-lg",
+                            isDark ? "bg-blue-900/20" : "bg-blue-50/80"
+                          )}
+                        >
+                          {formatFieldValue(
+                            field.key,
+                            String(ticketData[field.key])
+                          )}
+                        </div>
+                      </motion.div>
+                    ))}
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
-
-          {/* Indicateur d'activité pendant le chargement */}
         </motion.div>
       )}
     </div>

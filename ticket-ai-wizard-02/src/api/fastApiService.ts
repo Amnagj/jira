@@ -43,6 +43,8 @@ interface SearchHistoryItem {
   ticketIds?: string[];
   timestamp: number;
   visible: boolean;
+  similarity_score?: number | null;  // Nouveau champ
+  search_time?: number | null;
 }
 // Interface pour la réponse d'historique
 interface SearchHistoryResponse {
@@ -80,35 +82,40 @@ export async function validateExcelFormat(file: File): Promise<{ isValid: boolea
  */
 export async function searchSimilarTickets(ticketText: string): Promise<TicketSearchResponse> {
   try {
-    const response = await axios.post(`${API_BASE_URL}/search-tickets`, {
-      ticket_text: ticketText
-    });
-    const userData = localStorage.getItem('user');
-    const user = userData ? JSON.parse(userData) : null;
-    
-    const token = localStorage.getItem('token');
-    if (token && user) {
-      try {
-        await addSearchToHistory(ticketText, {
-          result: JSON.stringify(response.data),
-          ticketIds: response.data?.tickets?.map((t: any) => t.ticket_id) || []
-        });
-       
-      } catch (error) {
-        console.error("Erreur lors de l'ajout à l'historique:", error);
+      const response = await axios.post(`${API_BASE_URL}/search-tickets`, {
+          ticket_text: ticketText
+      });
+      
+      const userData = localStorage.getItem('user');
+      const user = userData ? JSON.parse(userData) : null;
+      const token = localStorage.getItem('token');
+      
+      if (token && user) {
+          try {
+              // Calculer le score de similarité moyen s'il existe des tickets
+              let avgSimilarity = null;
+              if (response.data?.tickets && response.data.tickets.length > 0) {
+                  const similarityScores = response.data.tickets.map((t: any) => t.similarity_score || 0);
+                  avgSimilarity = similarityScores.reduce((sum: number, score: number) => sum + score, 0) / similarityScores.length;
+              }
+              
+              await addSearchToHistory(ticketText, {
+                  result: JSON.stringify(response.data),
+                  ticketIds: response.data?.tickets?.map((t: any) => t.ticket_id) || [],
+                  similarity_score: avgSimilarity,  // Ajouter le score de similarité moyen
+                  search_time: response.data?.temps_recherche || null  // Ajouter le temps de recherche
+              });
+          } catch (error) {
+              console.error("Erreur lors de l'ajout à l'historique:", error);
+          }
       }
-    }
-
-
-
-
-    return response.data;
+      return response.data;
   } catch (error) {
-    console.error('Error searching for similar tickets:', error);
-    return {
-      status: 'error',
-      message: 'Une erreur est survenue lors de la recherche de tickets similaires.'
-    };
+      console.error('Error searching for similar tickets:', error);
+      return {
+          status: 'error',
+          message: 'Une erreur est survenue lors de la recherche de tickets similaires.'
+      };
   }
 }
 // Interface pour la réponse d'importation de tickets
@@ -285,71 +292,44 @@ export async function createUser(username: string, email: string): Promise<UserC
 
 
 // Modifiez la fonction addSearchToHistory dans fastApiService.ts comme suit:
-export async function addSearchToHistory(searchText: string, result: any): Promise<any> {
+export async function addSearchToHistory(ticketText: string, data: {
+  result: string,
+  ticketIds: string[],
+  similarity_score?: number | null,
+  search_time?: number | null
+}): Promise<any> {
   try {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      console.error('Token non trouvé, impossible d\'ajouter à l\'historique');
-      return {
-        status: 'error',
-        message: 'Non authentifié'
-      };
-    }
-
-    // S'assurer que result est une chaîne de caractères si ce n'est pas déjà un objet
-    const resultStr = typeof result === 'string' ? result : 
-                     (typeof result === 'object' && result.result ? result.result : JSON.stringify(result));
-
-    // Extraire les ticketIds de manière cohérente
-    let ticketIds: string[] = [];
-    
-    // Si result est un objet avec des ticketIds, les utiliser directement
-    if (typeof result === 'object' && result !== null) {
-      if (Array.isArray(result.ticketIds)) {
-        ticketIds = result.ticketIds;
-      } else if (result.tickets && Array.isArray(result.tickets)) {
-        ticketIds = result.tickets.map((t: any) => t.ticket_id);
+      const token = localStorage.getItem('token');
+      if (!token) {
+          console.error('Token non trouvé, impossible d\'ajouter à l\'historique');
+          return {
+              status: 'error',
+              message: 'Non authentifié'
+          };
       }
-    }
-    
-    console.log('Envoi des données à l\'historique:', {
-      ticket_text: searchText,
-      result: typeof resultStr === 'string' ? (resultStr.length > 50 ? resultStr.substring(0, 50) + '...' : resultStr) : 'Objet complexe',
-      ticketIds: ticketIds
-    });
-
-    const response = await axios.post(`${API_BASE_URL}/search-history/add`, {
-      ticket_text: searchText,
-      result: resultStr,
-      ticketIds: ticketIds
-    }, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-    });
-    
-    console.log('Réponse API historique:', response.data);
-    return response.data;
+      
+      const response = await axios.post(`${API_BASE_URL}/search-history/add`, {
+          ticket_text: ticketText,
+          result: data.result,
+          ticketIds: data.ticketIds,
+          similarity_score: data.similarity_score || null,
+          search_time: data.search_time || null
+      }, {
+          headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+          }
+      });
+      
+      return response.data;
   } catch (error: any) {
-    console.error('Error adding search to history:', error);
-    // Message d'erreur plus détaillé
-    const errorMessage = error.response?.data?.detail || error.message || 'Erreur inconnue';
-    return {
-      status: 'error',
-      message: `Erreur lors de l'ajout à l'historique: ${errorMessage}`
-    };
+      console.error('Error adding search to history:', error);
+      return {
+          status: 'error',
+          message: `Erreur lors de l'ajout à l'historique: ${error.message}`
+      };
   }
 }
-
-
-
-
-
-/**
- * Récupère l'historique des recherches
- */
-
 
 export async function getSearchHistory(): Promise<SearchHistoryResponse> {
   try {

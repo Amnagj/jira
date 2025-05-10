@@ -11,6 +11,7 @@ import { useTicketState } from "./TicketStateContext";
 import {
   validateExcelFormat,
   extractTicketDataFromExcel,
+  addSearchToHistory, // Assurez-vous que cette fonction est importée si elle ne l'est pas déjà
 } from "../api/fastApiService";
 import * as XLSX from "xlsx";
 import { Check, Clock, FileSearch, ZapIcon, AlertCircle } from "lucide-react";
@@ -28,9 +29,10 @@ export const TicketUpload = ({
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
+
   const { toast } = useToast();
   const { theme } = useTheme();
-  const { addToHistory, refreshHistory } = useSearchHistory();
+  const { refreshHistory } = useSearchHistory(); // On n'utilise plus addToHistory du hook
   const {
     ticketState,
     setTicketData,
@@ -51,25 +53,21 @@ export const TicketUpload = ({
   useEffect(() => {
     // Vérifier si un traitement doit être continué au montage du composant
     continueProcessingIfNeeded();
-    
     // Si un traitement est en cours selon le contexte global
     if (ticketState.processingState.inProgress && !file) {
       console.log(
         "Restauration d'un traitement en cours depuis le contexte global"
       );
       setUploading(true);
-      
       // Restaurer le fichier si disponible
       if (ticketState.processingState.file) {
         setFile(ticketState.processingState.file);
       }
     }
-    
     // Si nous avons des données de ticket mais pas de fichier
     if (ticketState.ticketData && !file) {
       setUploading(ticketState.loadingAnalysis);
     }
-    
     // Si nous avons des résultats de recherche, considérer que le traitement est terminé
     if (ticketState.searchResults && ticketState.searchResults.length > 0) {
       setIsMinimized(true);
@@ -157,7 +155,6 @@ export const TicketUpload = ({
                   cleanedData[column] = String(ticketData[column]);
                 }
               });
-
               Object.entries(ticketData).forEach(([key, value]) => {
                 if (
                   !knownColumns.includes(key) &&
@@ -229,7 +226,6 @@ export const TicketUpload = ({
           error
         );
       }
-      
       // Validation du format du fichier Excel
       setProcessingStatus("format_validation");
       const validation = await validateExcelFormat(file);
@@ -267,7 +263,6 @@ export const TicketUpload = ({
     cancelProcessing(); // Appeler la fonction d'annulation du contexte
     setUploading(false);
     onTicketDataExtracted(null, false);
-    // Ajouter ce toast pour confirmer l'annulation
     toast({
       title: "Traitement annulé",
       description: "L'analyse du ticket a été annulée avec succès.",
@@ -277,62 +272,51 @@ export const TicketUpload = ({
 
   const handleUpload = async () => {
     if (!file) return;
+
     setUploading(true);
     setContextProgress(0);
-    
     try {
       // Démarrer le traitement via le contexte global pour maintenir l'état
       setProcessingStatus("validating"); // Commencer par la validation
       const uploadPromise = startProcessing(file);
-      
       // Simuler l'avancement des différentes étapes
       const simulateProgress = async () => {
         // Lecture du fichier Excel
         setProcessingStatus("reading_excel");
         setContextProgress(15);
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
+        await new Promise((resolve) => setTimeout(resolve, 1000));
         // Extraction des données
         setProcessingStatus("extracting_data");
         setContextProgress(25);
-        await new Promise(resolve => setTimeout(resolve, 5500));
-        
+        await new Promise((resolve) => setTimeout(resolve, 5500));
         // Prétraitement
         setProcessingStatus("preprocessing");
         setContextProgress(45);
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
+        await new Promise((resolve) => setTimeout(resolve, 2000));
         // Analyse IA du ticket
         setProcessingStatus("ai_analysis");
         setContextProgress(60);
-        await new Promise(resolve => setTimeout(resolve, 40000));
-        
+        await new Promise((resolve) => setTimeout(resolve, 40000));
         // Extraction des mots-clés
         setProcessingStatus("keyword_extraction");
         setContextProgress(75);
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        
+        await new Promise((resolve) => setTimeout(resolve, 1500));
         // Recherche de tickets similaires
         setProcessingStatus("similarity_search");
         setContextProgress(85);
-        await new Promise(resolve => setTimeout(resolve, 2500));
-        
+        await new Promise((resolve) => setTimeout(resolve, 2500));
         // Finalisation
         setProcessingStatus("finalizing");
         setContextProgress(95);
       };
-      
       // Lancer la simulation de progression
       simulateProgress();
-      
       // Attendre la réponse réelle de l'API
       const response = await uploadPromise;
-      
       if (response.status === "success") {
         setContextProgress(100);
         setProcessingStatus("completed");
         onTicketDataExtracted(null, false);
-
         if (response.tickets && response.tickets.length > 0) {
           const ticketIds = response.tickets.map((t) => t.ticket_id);
           const bestMatch = response.tickets[0];
@@ -357,26 +341,37 @@ J'ai trouvé une solution pour votre ticket!
             ),
             variant: "default",
           });
-          
+
+          // SECTION CORRIGÉE: Utilisation de la fonction du service API
           if (localStorage.getItem("token")) {
             try {
-              await addToHistory({
-                queryText: file.name,
+              // Calculer le score de similarité moyen
+              const avgSimilarity = response.tickets
+                ? response.tickets.reduce(
+                    (sum, t) => sum + (t.similarity_score || 0),
+                    0
+                  ) / response.tickets.length
+                : null;
+
+              // Utiliser la fonction directement depuis le service API
+              const historyResponse = await addSearchToHistory(file.name, {
                 result: responseMessage,
                 ticketIds: ticketIds,
+                similarity_score: avgSimilarity,
+                search_time: response.temps_recherche || null,
               });
+
               console.log("Ajout à l'historique réussi");
               await refreshHistory();
             } catch (error) {
               console.error("Erreur lors de l'ajout à l'historique:", error);
             }
           }
-          
+
           // Mettre à jour le contexte global avec les résultats
           setInitialMessage(responseMessage);
           setTicketIds(ticketIds);
           setSearchResults(response.tickets);
-          
           // Appeler aussi le callback local
           onFileUploaded(responseMessage, ticketIds, response.tickets);
         } else {
@@ -388,12 +383,10 @@ J'ai trouvé une solution pour votre ticket!
             "Aucun ticket similaire n'a été trouvé pour votre demande."
           );
         }
-        
         setIsMinimized(true);
         setTimeout(() => {
           setContextProgress(0);
         }, 100);
-        
         setUploading(false);
         endProcessing();
       } else {
@@ -420,7 +413,6 @@ J'ai trouvé une solution pour votre ticket!
           "Une erreur est survenue lors de l'analyse de votre ticket. Veuillez réessayer."
         );
       }
-      
       setUploading(false);
       setContextProgress(0);
       endProcessing();
@@ -428,11 +420,11 @@ J'ai trouvé une solution pour votre ticket!
   };
 
   return (
-    <div className="flex flex-col md:flex-row gap-6">
+    <div className="flex flex-col md:flex-row gap-4">
       <div
         className={cn(
           "transition-all duration-300",
-          isMinimized ? "w-full md:w-1/3" : "w-full md:w-2/3"
+          isMinimized ? "w-full md:w-3/5" : "w-full"
         )}
       >
         {!file ? (
@@ -447,14 +439,20 @@ J'ai trouvé une solution pour votre ticket!
             }}
             onUpload={validateAndUpload}
             uploading={uploading}
-            // Remplacez ou ajoutez la prop processingStatus
             processingStatus={ticketState.processingState.status}
             onCancel={handleCancelUpload}
           />
         )}
       </div>
-      {!file && (
-        <div className={cn("transition-all duration-300", "w-full md:w-1/3")}>
+      {/* Instructions avec affichage conditionnel et taille adaptative */}
+      {(!file || isMinimized) && (
+        <div
+          className={cn(
+            "transition-all duration-300",
+            "w-full md:w-2/5",
+            "self-start"
+          )}
+        >
           <TicketInstructions />
         </div>
       )}

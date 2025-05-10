@@ -77,9 +77,9 @@ export const FilePreview = ({
       className={cn(
         "rounded-xl border p-4 transition-all",
         isDark
-          ? "border-blue-800/30 bg-slate-900/80"
-          : "border-blue-100 bg-blue-50/50",
-        uploading && "border-blue-500/50"
+          ? "border-blue-800/50 bg-blue-950/80" // Plus bleu et plus foncé
+          : "border-blue-200 bg-blue-50/70", // Plus bleu et plus visible
+        uploading && "border-blue-500/70" // Bordure plus visible pendant le chargement
       )}
     >
       <div className="mb-2 flex items-center justify-between">
@@ -134,45 +134,46 @@ export const FilePreview = ({
             isLongRunning={isLongRunning}
           />
           <div className="mt-4 flex justify-end">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onCancel}
-              className={cn(
-                "flex items-center gap-2",
-                isDark
-                  ? "border-red-800/50 bg-red-900/20 text-red-400 hover:bg-red-900/30"
-                  : "border-red-200 bg-red-50 text-red-600 hover:bg-red-100"
-              )}
-            >
-              <StopCircle className="h-4 w-4" />
-              Annuler le traitement
-            </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onCancel}
+            className={cn(
+              "flex items-center gap-2",
+              isDark
+                ? "border-red-800/50 bg-red-900/30 text-red-400 hover:bg-red-900/40"
+                : "border-red-200 bg-red-50 text-red-600 hover:bg-red-100"
+            )}
+          >
+            <StopCircle className="h-4 w-4" />
+            Annuler le traitement
+          </Button>
+
           </div>
         </div>
       ) : (
         <div className="mt-4">
           {!isReady ? (
             <div
-              className={cn(
-                "flex items-center justify-center py-3",
-                isDark ? "text-slate-400" : "text-slate-500"
-              )}
-            >
-              <span className="flex items-center gap-2 text-sm">
-                <span className="animate-spin">
-                  <Upload className="h-4 w-4" />
-                </span>
-                Vérification du fichier...
+            className={cn(
+              "flex items-center justify-center py-3",
+              isDark ? "text-blue-400" : "text-blue-600" // Bleu au lieu de slate
+            )}
+          >
+            <span className="flex items-center gap-2 text-sm">
+              <span className="animate-spin">
+                <Upload className="h-4 w-4" />
               </span>
-            </div>
+              Vérification du fichier...
+            </span>
+          </div>
           ) : (
             <Button
               onClick={onUpload}
               className={cn(
                 "w-full",
                 isDark
-                  ? "bg-blue-600 text-white hover:bg-blue-700"
+                  ? "bg-blue-700 text-white hover:bg-blue-800" // Bleu plus foncé pour un meilleur contraste
                   : "bg-blue-600 text-white hover:bg-blue-700"
               )}
             >

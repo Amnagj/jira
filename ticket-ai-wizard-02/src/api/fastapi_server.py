@@ -28,11 +28,11 @@ from bson import ObjectId
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token", auto_error=False) 
 
-def get_current_user_optional(token: str = Depends(oauth2_scheme)): 
+async def get_current_user_optional(token: str = Depends(oauth2_scheme)): 
     if not token: 
         return None 
     try: 
-        return get_current_user(token) 
+        return await get_current_user(token) 
     except: 
         return None 
 
@@ -202,19 +202,31 @@ async def upload_file(file: UploadFile = File(...), current_user: dict = Depends
             os.unlink(temp_file_path) 
             print("Fichier temporaire supprimé") 
             
-            if current_user and resultats and len(resultats) > 0: 
-                try: 
-                    # Utiliser la fonction add_history_item pour enregistrer dans MongoDB 
-                    add_history_item( 
-                        user_id=current_user["id"], 
-                        query_text=file.filename,  # Utiliser le nom du fichier comme requête 
-                        result=resultats[0].get("message", ""), 
-                        ticket_ids=[ticket["ticket_id"] for ticket in resultats[0].get("tickets", [])] if resultats[0].get("tickets") else [] 
-                    ) 
-                    print("Résultat ajouté à l'historique avec succès") 
-                except Exception as hist_error: 
-                    print(f"Erreur lors de l'ajout à l'historique: {hist_error}") 
-            
+            if current_user and resultats and len(resultats) > 0:
+                try:
+                    # Extraire les données pertinentes
+                    tickets = resultats[0].get("tickets", [])
+                    temps_recherche = resultats[0].get("temps_recherche", None)
+                    
+                    # Calculer le score de similarité moyen s'il existe des tickets
+                    avg_similarity = None
+                    if tickets:
+                        similarity_scores = [ticket.get("similarity_score", 0) for ticket in tickets]
+                        if similarity_scores:
+                            avg_similarity = sum(similarity_scores) / len(similarity_scores)
+                    
+                    # Utiliser la fonction add_history_item pour enregistrer dans MongoDB
+                    add_history_item(
+                        user_id=current_user["id"],
+                        query_text=file.filename, # Utiliser le nom du fichier comme requête
+                        result=resultats[0].get("message", ""),
+                        ticket_ids=[ticket["ticket_id"] for ticket in tickets] if tickets else [],
+                        similarity_score=avg_similarity,  # Ajouter le score de similarité moyen
+                        search_time=temps_recherche  # Ajouter le temps de recherche
+                    )
+                    print("Résultat ajouté à l'historique avec succès")
+                except Exception as hist_error:
+                    print(f"Erreur lors de l'ajout à l'historique: {hist_error}")
                 return resultats[0] 
             else: 
                 print("Aucun résultat trouvé") 
@@ -256,17 +268,20 @@ async def add_search_to_history(
     """
     try:
         query_text = data.get("ticket_text", "")
-        result = data.get("result", "")  # Assurez-vous que result est une chaîne
-        ticket_ids = data.get("ticketIds", [])  # Récupérer directement les ticketIds
-       
-        # Ajouter à l'historique
+        result = data.get("result", "") # Assurez-vous que result est une chaîne
+        ticket_ids = data.get("ticketIds", []) # Récupérer directement les ticketIds
+        similarity_score = data.get("similarity_score", None) # Récupérer le taux de similarité
+        search_time = data.get("search_time", None) # Récupérer le temps de recherche
+        
+        # Ajouter à l'historique avec les nouveaux paramètres
         history_item = add_history_item(
             user_id=current_user["id"],
             query_text=query_text,
             result=result,
-            ticket_ids=ticket_ids
+            ticket_ids=ticket_ids,
+            similarity_score=similarity_score,
+            search_time=search_time
         )
-       
         return history_item
     except Exception as e:
         return {

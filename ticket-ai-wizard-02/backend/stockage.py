@@ -27,7 +27,10 @@ def store_ticket_in_mongo(ticket_data):
     problem = ticket_data.get("problem", "Inconnu")
     solution = ticket_data.get("solution", "Non résolu")
     keywords = ticket_data.get("keywords", "")
-    
+    ticket_priority = ticket_data.get("ticket_priority", "")
+    ticket_type = ticket_data.get("ticket_type", "")
+    ticket_client_project = ticket_data.get("ticket_client_project", "")
+
     # Vérifier si l'ID existe déjà
     existing_ticket = collection.find_one({"_id": ticket_id})
     if existing_ticket:
@@ -47,6 +50,9 @@ def store_ticket_in_mongo(ticket_data):
         "solution": solution,
         "keywords": keywords,
         "embedding": embedding_vector,
+        "ticket_priority": ticket_priority,
+        "ticket_type": ticket_type,
+        "ticket_client_project": ticket_client_project,
         "timestamp": time.time()
     }
     

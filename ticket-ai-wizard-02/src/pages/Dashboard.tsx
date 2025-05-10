@@ -1,5 +1,4 @@
-// src/pages/Dashboard.tsx
-import { useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Navbar } from "@/components/Navbar";
 import { TicketUpload } from "@/components/TicketUpload";
 import { ChatInterface } from "@/components/ChatInterface";
@@ -12,67 +11,53 @@ import { cn } from "@/lib/utils";
 import { SearchHistory } from "@/components/SearchHistory";
 import { SimilarityResults } from "@/components/SimilarityResults";
 import { useTicketState } from "@/components/TicketStateContext";
-import { Button } from "@/components/ui/button"; // Import de Button si nécessaire
-import { StopCircle } from "lucide-react"; // Import de l'icône StopCircle
+import { Button } from "@/components/ui/button";
+import { StopCircle, Eye, EyeOff, ChevronLeft, ChevronRight } from "lucide-react";
 
 const Dashboard = () => {
-  const { 
-    ticketState, 
-    setInitialMessage, 
-    setTicketIds, 
-    setSearchResults, 
+  const {
+    ticketState,
+    setInitialMessage,
+    setTicketIds,
+    setSearchResults,
     setTicketData,
     setLoadingAnalysis,
-    cancelProcessing // Import de la fonction d'annulation
+    cancelProcessing
   } = useTicketState();
   
-  const { 
-    initialMessage, 
-    ticketIds, 
-    ticketData, 
-    loadingAnalysis, 
+  const {
+    initialMessage,
+    ticketIds,
+    ticketData,
+    loadingAnalysis,
     searchResults,
-    processingState // Accès à l'état du traitement
+    processingState
   } = ticketState;
   
   const { theme } = useTheme();
   const isDark = theme === "dark";
-
-  // Logique de gestion des callbacks pour maintenir la cohérence avec l'état global
+  
+  // État pour gérer l'affichage du panneau d'historique
+  const [historyPanelVisible, setHistoryPanelVisible] = useState(true);
+  
+  // Callbacks pour maintenir la cohérence avec l'état global
   const handleFileUploaded = (message: string, ids?: string[], results?: any[]) => {
     setInitialMessage(message);
     setTicketIds(ids);
     setSearchResults(results || null);
   };
-
+  
   const handleTicketDataExtracted = (data: Record<string, any> | null, loading: boolean) => {
     setTicketData(data);
     setLoadingAnalysis(loading);
-    // Si nous avons des données de ticket et que l'analyse est en cours,
-    // nous pouvons afficher un message explicatif
-    if (data && loading) {
-      console.log("Données du ticket en cours d'analyse:", data);
-    }
   };
-
-  // Fonction pour gérer l'annulation du traitement
+  
   const handleCancelProcessing = () => {
     console.log("Annulation du traitement demandée depuis Dashboard");
     cancelProcessing();
   };
-
-  // Log de débogage pour vérifier l'état quand le composant est monté ou mis à jour
-  useEffect(() => {
-    console.log("Dashboard monté/mis à jour avec état:", {
-      hasTicketData: !!ticketData,
-      loadingAnalysis,
-      hasSearchResults: searchResults?.length > 0,
-      initialMessage: initialMessage?.substring(0, 30),
-      ticketIds: ticketIds?.length,
-      isProcessing: processingState.inProgress // Ajout du log pour l'état du traitement
-    });
-  }, [ticketData, loadingAnalysis, searchResults, initialMessage, ticketIds, processingState.inProgress]);
-
+  
+  // Animation variants
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -83,7 +68,7 @@ const Dashboard = () => {
       }
     }
   };
-
+  
   const itemVariants = {
     hidden: { y: 20, opacity: 0 },
     visible: {
@@ -92,20 +77,31 @@ const Dashboard = () => {
       transition: { duration: 0.5, ease: "easeOut" }
     }
   };
+  
+  // Détermine si l'interface est en mode analyse ou en mode résultats
+  const isAnalysisMode = loadingAnalysis || (ticketData && !searchResults?.length);
+  const isResultsMode = searchResults && searchResults.length > 0;
+  
+  // Gérer le toggle du panneau d'historique
+  const toggleHistoryPanel = () => {
+    setHistoryPanelVisible(!historyPanelVisible);
+  };
 
   return (
     <div className="min-h-screen relative overflow-x-hidden font-sourcesans text-foreground">
       {isDark && <StarfieldBackground />}
       {isDark && <CosmicElements />}
       <Navbar />
-      <main className="container mx-auto pt-16 px-4 relative z-10 pb-10">
+      
+      {/* Main content area with flexible layout */}
+      <main className="container mx-auto pt-12 px-4 relative z-10 pb-10">
         <motion.div
           className="mx-auto"
           variants={containerVariants}
           initial="hidden"
           animate="visible"
         >
-          <motion.div variants={itemVariants} className="text-center mb-2">
+          <motion.div variants={itemVariants} className="text-center mb-4">
             <h1 className={cn(
               "text-xl md:text-2xl font-bold text-gradient mb-0",
               isDark ? "text-white" : "text-gray-800"
@@ -114,89 +110,149 @@ const Dashboard = () => {
             </h1>
           </motion.div>
           
-          
-          
-          <div className="grid gap-4 md:grid-cols-7 lg:gap-6">
-            {/* Section historique à gauche */}
+          <div className="flex flex-col md:flex-row gap-4 relative">
+            {/* History panel with toggle button */}
+            <div className="relative">
+              <motion.div
+                initial={{ opacity: 1, x: historyPanelVisible ? 0 : -300 }}
+                animate={{ opacity: 1, x: historyPanelVisible ? 0 : -300 }}
+                transition={{ duration: 0.3 }}
+                className={cn(
+                  "md:w-72 lg:w-80 transition-all duration-300 absolute md:relative z-20",
+                  !historyPanelVisible && "md:hidden"
+                )}
+              >
+                <SearchHistory />
+              </motion.div>
+              
+              <button 
+                onClick={toggleHistoryPanel}
+                className={cn(
+                  "absolute top-2 -right-10 z-30 p-2 rounded-full md:flex items-center justify-center hidden",
+                  isDark ? "bg-blue-900/50 hover:bg-blue-800" : "bg-blue-100 hover:bg-blue-200"
+                )}
+              >
+                {historyPanelVisible ? 
+                  <ChevronLeft size={18} /> : 
+                  <ChevronRight size={18} />
+                }
+              </button>
+            </div>
+            
+            {/* Main content area with flexible width */}
             <motion.div
               variants={itemVariants}
-              className="md:col-span-2"
+              className={cn(
+                "flex-grow transition-all duration-300",
+                historyPanelVisible ? "md:ml-4" : ""
+              )}
             >
-              <SearchHistory />
-            </motion.div>
-
-            {/* Section principale */}
-            <motion.div
-              variants={itemVariants}
-              className="md:col-span-5"
-            >
+              {/* Upload section - more compact with balanced proportions */}
               <motion.div variants={itemVariants}>
                 <div className={cn(
                   "mb-4 p-4 rounded-xl border",
-                  isDark
-                    ? "bg-card/20 border-white/10"
-                    : "bg-white border-gray-200"
+                  isDark ? "bg-card/20 border-white/10" : "bg-white border-gray-200"
                 )}>
-                  <h2 className={cn(
-                    "text-lg font-medium mb-3",
-                    isDark ? "text-white" : "text-gray-800"
-                  )}>
-                    Importer votre ticket
-                  </h2>
-                  <TicketUpload
-                    onFileUploaded={handleFileUploaded}
-                    onTicketDataExtracted={handleTicketDataExtracted}
-                  />
+                  <div className="flex items-center justify-between mb-3">
+                    <h2 className={cn(
+                      "text-lg font-medium",
+                      isDark ? "text-white" : "text-gray-800"
+                    )}>
+                      Importer votre ticket
+                    </h2>
+                    
+                    {/* Cancel button during processing */}
+                    {processingState.inProgress && (
+                      <Button 
+                        variant="destructive" 
+                        size="sm"
+                        onClick={handleCancelProcessing}
+                        className="flex items-center gap-1.5"
+                      >
+                        <StopCircle size={14} />
+                        <span>Annuler</span>
+                      </Button>
+                    )}
+                  </div>
+                  
+                  {/* File upload component with improved layout */}
+                  <div className="max-h-[280px] overflow-y-auto">
+                    <TicketUpload
+                      onFileUploaded={handleFileUploaded}
+                      onTicketDataExtracted={handleTicketDataExtracted}
+                    />
+                  </div>
                 </div>
               </motion.div>
-
-              {/* Affichage des détails du ticket pendant l'analyse */}
-              {(loadingAnalysis || ticketData) && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5 }}
-                  className="mb-4"
-                >
-                  <TicketDetails
-                    ticketData={ticketData}
-                    loading={loadingAnalysis}
-                  />
-                </motion.div>
-              )}
-
-              {/* Affichage des résultats de recherche */}
-              {searchResults && searchResults.length > 0 && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5 }}
-                  className="mb-4"
-                >
-                  <SimilarityResults
-                    tickets={searchResults}
-                    loading={false}
-                    searchTime={0.5} // Vous pouvez ajuster cette valeur ou la gérer dynamiquement
-                  />
-                </motion.div>
-              )}
-
-              {initialMessage && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5 }}
-                >
-                  <ChatInterface
-                    initialMessage={initialMessage}
-                    ticketIds={ticketIds}
-                  />
-                </motion.div>
-              )}
+              
+              {/* Results display with improved proportions */}
+              <div className="flex flex-col gap-4">
+                {/* Ticket details with standardized height */}
+                {(loadingAnalysis || ticketData) && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5 }}
+                    className="mb-2"
+                  >
+                    <div className={cn(
+                      "rounded-xl border overflow-hidden",
+                      isDark ? "bg-card/20 border-white/10" : "bg-white border-gray-200"
+                    )}>
+                      <TicketDetails
+                        ticketData={ticketData}
+                        loading={loadingAnalysis}
+                      />
+                    </div>
+                  </motion.div>
+                )}
+                
+                {/* Similarity results with consistent sizing */}
+                {searchResults && searchResults.length > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5 }}
+                    className="mb-2"
+                  >
+                    <div className={cn(
+                      "rounded-xl border overflow-hidden max-h-[400px]",
+                      isDark ? "bg-card/20 border-white/10" : "bg-white border-gray-200"
+                    )}>
+                      <SimilarityResults
+                        tickets={searchResults}
+                        loading={false}
+                        searchTime={0.5}
+                      />
+                    </div>
+                  </motion.div>
+                )}
+                
+                {/* Chat interface */}
+                {initialMessage && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5 }}
+                    className="mb-2"
+                  >
+                    <div className={cn(
+                      "rounded-xl border overflow-hidden",
+                      isDark ? "bg-card/20 border-white/10" : "bg-white border-gray-200"
+                    )}>
+                      <ChatInterface
+                        initialMessage={initialMessage}
+                        ticketIds={ticketIds}
+                      />
+                    </div>
+                  </motion.div>
+                )}
+              </div>
             </motion.div>
           </div>
         </motion.div>
       </main>
+      
       {isDark && (
         <>
           <GlowingOrb className="fixed top-1/4 left-1/5 -z-10" size={250} color="rgba(79, 70, 229, 0.08)" />
