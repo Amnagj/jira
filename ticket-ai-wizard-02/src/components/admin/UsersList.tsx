@@ -3,10 +3,12 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Mail, Trash2, AlertCircle, ShieldCheck, User as UserIcon } from "lucide-react";
+import { Mail, Trash2, AlertCircle, ShieldCheck, User as UserIcon, Search } from "lucide-react";
 import { useTheme } from "@/hooks/useTheme";
 import { cn } from "@/lib/utils";
-import { deleteUser, resendInvitation, getUsers } from "@/api/fastApiService";
+import { deleteUser, resendInvitation, getUsers, updateUserRole } from "@/api/fastApiService";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 
 interface User {
   _id: string;
@@ -24,7 +26,7 @@ export const UsersList = () => {
     scrollbarWidth: 'none' as const,  // Pour Firefox
     msOverflowStyle: 'none' as const, // Pour IE/Edge
   };
-  
+ 
   // Style pour cacher la scrollbar pour Webkit (Chrome, Safari)
   const webkitScrollbarStyle = `
     .hide-scrollbar::-webkit-scrollbar {
@@ -37,7 +39,7 @@ export const UsersList = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+ 
   const [deleteConfirmation, setDeleteConfirmation] = useState<{
     open: boolean;
     userId: string | null;
@@ -47,9 +49,11 @@ export const UsersList = () => {
     userId: null,
     username: null
   });
-  
+ 
   const [isDeleting, setIsDeleting] = useState(false);
   const [isResendingEmail, setIsResendingEmail] = useState<string | null>(null);
+  const [isUpdatingRole, setIsUpdatingRole] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState<string>("");
 
   // Fonction pour charger les utilisateurs depuis MongoDB
   const loadUsers = async () => {
@@ -76,18 +80,68 @@ export const UsersList = () => {
   useEffect(() => {
     loadUsers();
   }, []);
-  
+ 
+  // Fonction pour changer le rôle d'un utilisateur
+  const handleChangeRole = async (userId: string, newRole: string) => {
+    setIsUpdatingRole(userId);
+    try {
+      const isAdmin = newRole === "admin";
+      const result = await updateUserRole(userId, isAdmin);
+      
+      if (result.status === 'success') {
+        // Mettre à jour la liste des utilisateurs localement
+        setUsers(users.map(user => {
+          if (user._id === userId) {
+            return { ...user, isAdmin };
+          }
+          return user;
+        }));
+        
+        toast({
+          title: "Rôle mis à jour",
+          description: `Le rôle de l'utilisateur a été changé en ${isAdmin ? 'administrateur' : 'utilisateur standard'}.`,
+        });
+      } else {
+        toast({
+          title: "Erreur",
+          description: result.message || "Une erreur est survenue lors de la mise à jour du rôle.",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error("Error updating user role:", error);
+      toast({
+        title: "Erreur",
+        description: "Une erreur est survenue lors de la mise à jour du rôle.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsUpdatingRole(null);
+    }
+  };
+
+  // Filtrer les utilisateurs en fonction de la recherche
+  const filteredUsers = useMemo(() => {
+    if (!searchQuery.trim()) return users;
+    
+    const query = searchQuery.toLowerCase().trim();
+    return users.filter(user => 
+      user.username.toLowerCase().includes(query) || 
+      user.email.toLowerCase().includes(query)
+    );
+  }, [users, searchQuery]);
+
   // Trier les utilisateurs: admins en haut, utilisateurs normaux en bas
   const sortedUsers = useMemo(() => {
-    return [...users].sort((a, b) => {
+    return [...filteredUsers].sort((a, b) => {
       // Tri principal par statut admin (admins en premier)
       if (a.isAdmin && !b.isAdmin) return -1;
       if (!a.isAdmin && b.isAdmin) return 1;
-      
+     
       // Tri secondaire par nom d'utilisateur
       return a.username.localeCompare(b.username);
     });
-  }, [users]);
+  }, [filteredUsers]);
 
   const handleDeleteUser = async () => {
     if (!deleteConfirmation.userId) return;
@@ -190,14 +244,34 @@ export const UsersList = () => {
     );
   }
 
+  const isRootAdmin = (email: string) => {
+    return email === "admin@gmail.com";
+  };
+
   return (
     <>
-      {users.length === 0 ? (
+      {/* Barre de recherche */}
+      <div className="mb-4 relative">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Input
+            placeholder="Rechercher un utilisateur..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className={cn(
+              "pl-10",
+              isDark ? "bg-gray-800 text-white" : "bg-white text-gray-900"
+            )}
+          />
+        </div>
+      </div>
+      
+      {sortedUsers.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 text-center">
           <AlertCircle size={48} className={cn("mb-4", isDark ? "text-gray-400" : "text-gray-500")} />
           <h3 className="text-lg font-medium mb-1">Aucun utilisateur trouvé</h3>
           <p className={cn("text-sm", isDark ? "text-gray-400" : "text-gray-500")}>
-            Aucun utilisateur n'a encore été créé ou vos filtres ne correspondent à aucun résultat.
+            {searchQuery ? "Aucun utilisateur ne correspond à votre recherche." : "Aucun utilisateur n'a encore été créé."}
           </p>
         </div>
       ) : (
@@ -205,7 +279,7 @@ export const UsersList = () => {
           <Table>
             <TableHeader className="sticky top-0 bg-background z-10">
               <TableRow>
-                <TableHead className="w-1/5">Utilisateur</TableHead>
+                <TableHead className="w-1/6">Utilisateur</TableHead>
                 <TableHead className="w-1/4">Email</TableHead>
                 <TableHead className="w-1/5">Date de création</TableHead>
                 <TableHead className="w-1/5">Rôle</TableHead>
@@ -217,8 +291,8 @@ export const UsersList = () => {
                 <TableRow key={user._id}>
                   <TableCell className="font-medium">
                     <div className="flex items-center gap-2">
-                      {user.isAdmin ? 
-                        <ShieldCheck size={16} className={isDark ? "text-purple-400" : "text-purple-600"}/> : 
+                      {user.isAdmin ?
+                        <ShieldCheck size={16} className={isDark ? "text-purple-400" : "text-purple-600"}/> :
                         <UserIcon size={16} className={isDark ? "text-gray-400" : "text-gray-600"}/>
                       }
                       {user.username}
@@ -229,21 +303,35 @@ export const UsersList = () => {
                     {user.createdAt ? formatDate(user.createdAt.toString()) : 'N/A'}
                   </TableCell>
                   <TableCell>
-                    {user.isAdmin ? (
-                      <span className={cn(
-                        "px-2 py-1 rounded-full text-xs font-semibold",
-                        isDark ? "bg-purple-900/50 text-purple-300" : "bg-purple-100 text-purple-800"
-                      )}>
-                        Admin
-                      </span>
-                    ) : (
-                      <span className={cn(
-                        "px-2 py-1 rounded-full text-xs font-semibold",
-                        isDark ? "bg-gray-800 text-gray-300" : "bg-gray-100 text-gray-600"
-                      )}>
-                        Utilisateur
-                      </span>
-                    )}
+                    <Select
+                      defaultValue={user.isAdmin ? "admin" : "user"}
+                      onValueChange={(value) => handleChangeRole(user._id, value)}
+                      disabled={isRootAdmin(user.email) || isUpdatingRole === user._id}
+                    >
+                      <SelectTrigger className="w-32">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="user">
+                          <span className={cn(
+                            "flex items-center",
+                            isDark ? "text-gray-300" : "text-gray-600"
+                          )}>
+                            <UserIcon size={14} className="mr-2" />
+                            Utilisateur
+                          </span>
+                        </SelectItem>
+                        <SelectItem value="admin">
+                          <span className={cn(
+                            "flex items-center",
+                            isDark ? "text-purple-300" : "text-purple-600"
+                          )}>
+                            <ShieldCheck size={14} className="mr-2" />
+                            Admin
+                          </span>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end space-x-2">
@@ -273,10 +361,10 @@ export const UsersList = () => {
                           userId: user._id,
                           username: user.username
                         })}
-                        disabled={user.isAdmin}
+                        disabled={isRootAdmin(user.email)}
                       >
                         <Trash2 size={16} className={
-                          user.isAdmin
+                          isRootAdmin(user.email)
                             ? "text-gray-400"
                             : (isDark ? "text-red-400" : "text-red-500")
                         } />

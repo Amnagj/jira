@@ -30,15 +30,13 @@ except Exception as e:
     # Ne pas faire planter l'application, mais log l'erreur
 
 
-
-
-
-
 class UserCreate(BaseModel):
     username: str
     email: EmailStr
 
 
+class UserRoleUpdate(BaseModel):
+    isAdmin: bool
 
 
 class UserResponse(BaseModel):
@@ -53,8 +51,6 @@ class UserListResponse(BaseModel):
     status: str
     message: str = ""
     users: Optional[List[dict]] = None
-
-
 
 
 router = APIRouter(
@@ -89,10 +85,46 @@ async def delete_user(user_id: str):
         return {"status": "error", "message": f"Erreur lors de la suppression de l'utilisateur: {str(e)}"}
 
 
-
-
-
-
+@router.put("/update-role/{user_id}")
+async def update_user_role(user_id: str, role_data: UserRoleUpdate = Body(...), current_user: dict = Depends(get_current_user)):
+    """
+    Met à jour le rôle d'un utilisateur (administrateur ou utilisateur standard)
+    """
+    # Vérifier si l'utilisateur actuel est admin
+    if not current_user.get("isAdmin", False):
+        return {"status": "error", "message": "Accès refusé. Vous devez être administrateur."}
+        
+    try:
+        client, collection = connect_to_mongodb()
+        
+        # Convertir la chaîne ID en ObjectId
+        object_id = ObjectId(user_id)
+        
+        # Vérifier si l'utilisateur existe
+        user = collection.find_one({"_id": object_id})
+        if not user:
+            client.close()
+            return {"status": "error", "message": f"Utilisateur avec ID {user_id} non trouvé"}
+        
+        # Vérifier que ce n'est pas l'admin principal qui ne peut pas être modifié
+        if user.get("email") == "admin@gmail.com":
+            client.close()
+            return {"status": "error", "message": "Le rôle de l'administrateur principal ne peut pas être modifié"}
+        
+        # Mettre à jour le rôle de l'utilisateur
+        result = collection.update_one(
+            {"_id": object_id},
+            {"$set": {"isAdmin": role_data.isAdmin}}
+        )
+        
+        client.close()
+        
+        if result.modified_count == 1:
+            return {"status": "success", "message": f"Rôle de l'utilisateur mis à jour avec succès"}
+        else:
+            return {"status": "error", "message": "Aucune modification effectuée"}
+    except Exception as e:
+        return {"status": "error", "message": f"Erreur lors de la mise à jour du rôle: {str(e)}"}
 
 
 @router.post("/create")
@@ -117,8 +149,6 @@ async def create_new_user(user_data: UserCreate = Body(...)):
         raise HTTPException(status_code=500, detail=f"Erreur lors de la création de l'utilisateur: {str(e)}")
 
 
-
-
 @router.get("/list", response_model=UserListResponse)
 async def list_users(current_user: dict = Depends(get_current_user)):
     """
@@ -127,7 +157,7 @@ async def list_users(current_user: dict = Depends(get_current_user)):
     # Vérifier si l'utilisateur est admin
     if not current_user.get("isAdmin", False):
         return {"status": "error", "message": "Accès refusé. Vous devez être administrateur."}
-        
+       
     try:
         client, collection = connect_to_mongodb()
         users = list(collection.find({}))
@@ -181,6 +211,3 @@ async def resend_invitation(data: dict = Body(...)):
             return {"status": "error", "message": "Erreur lors de l'envoi de l'email"}
     except Exception as e:
         return {"status": "error", "message": f"Erreur lors du renvoi de l'invitation: {str(e)}"}
-
-
-

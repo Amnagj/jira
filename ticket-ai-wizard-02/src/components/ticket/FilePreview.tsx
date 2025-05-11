@@ -75,7 +75,7 @@ export const FilePreview = ({
   return (
     <div
       className={cn(
-        "rounded-xl border p-4 transition-all",
+        "rounded-lg border p-3 transition-all",
         isDark
           ? "border-blue-800/50 bg-blue-950/80" // Plus bleu et plus foncé
           : "border-blue-200 bg-blue-50/70", // Plus bleu et plus visible
@@ -86,13 +86,13 @@ export const FilePreview = ({
         <div className="flex items-center gap-2">
           <div
             className={cn(
-              "flex h-10 w-10 items-center justify-center rounded-lg",
+              "flex h-8 w-8 items-center justify-center rounded-md",
               isDark ? "bg-blue-900/50" : "bg-blue-100"
             )}
           >
             <File
               className={cn(
-                "h-5 w-5",
+                "h-4 w-4",
                 isDark ? "text-blue-400" : "text-blue-600"
               )}
             />
@@ -100,7 +100,7 @@ export const FilePreview = ({
           <div>
             <h3
               className={cn(
-                "text-sm font-medium",
+                "text-xs font-medium",
                 isDark ? "text-white" : "text-slate-900"
               )}
             >
@@ -128,24 +128,24 @@ export const FilePreview = ({
           )}
       </div>
       {uploading ? (
-        <div className="mt-4">
+        <div className="mt-3">
           <ProcessingIndicator
             currentStep={processingStep}
             isLongRunning={isLongRunning}
           />
-          <div className="mt-4 flex justify-end">
+          <div className="mt-3 flex justify-end">
           <Button
             variant="outline"
             size="sm"
             onClick={onCancel}
             className={cn(
-              "flex items-center gap-2",
+              "flex items-center gap-2 text-xs py-1 h-7",
               isDark
                 ? "border-red-800/50 bg-red-900/30 text-red-400 hover:bg-red-900/40"
                 : "border-red-200 bg-red-50 text-red-600 hover:bg-red-100"
             )}
           >
-            <StopCircle className="h-4 w-4" />
+            <StopCircle className="h-3 w-3" />
             Annuler le traitement
           </Button>
 
@@ -171,13 +171,13 @@ export const FilePreview = ({
             <Button
               onClick={onUpload}
               className={cn(
-                "w-full",
+                "w-full h-8 text-sm",
                 isDark
                   ? "bg-blue-700 text-white hover:bg-blue-800" // Bleu plus foncé pour un meilleur contraste
                   : "bg-blue-600 text-white hover:bg-blue-700"
               )}
             >
-              <Upload className="mr-2 h-4 w-4" />
+              <Upload className="mr-2 h-3 w-3" />
               Analyser le ticket
             </Button>
           )}

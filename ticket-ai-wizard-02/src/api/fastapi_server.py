@@ -615,7 +615,7 @@ async def get_history_details(
         }
     
 @app.get("/admin/stats/tickets", response_model=dict)
-async def get_tickets_stats(current_user: dict = Depends(get_current_user)):
+async def get_tickets_stats(current_user: dict = Depends(get_current_user), project: str = None):
     """Récupère les statistiques sur les tickets pour le dashboard admin."""
     # Vérifier que l'utilisateur est un admin
     if not current_user.get("isAdmin", False):
@@ -623,55 +623,89 @@ async def get_tickets_stats(current_user: dict = Depends(get_current_user)):
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Accès réservé aux administrateurs"
         )
-    
     try:
         # Connexion à MongoDB
         client = pymongo.MongoClient(MONGO_URI)
         db_jira = client["jira"]
         tickets_collection = db_jira["tickets"]
-        
+       
+        # Filtre de base pour les requêtes (si un projet est spécifié)
+        base_filter = {"ticket_client_project": project} if project else {}
+       
         # Statistiques sur les tickets
-        total_tickets = tickets_collection.count_documents({})
-        
+        total_tickets = tickets_collection.count_documents(base_filter)
+       
         # Obtenir les 5 mots-clés les plus fréquents
-        pipeline = [
-            {"$project": {"keywords": 1}},
-            {"$unwind": {"path": "$keywords", "preserveNullAndEmptyArrays": False}},
-            {"$group": {"_id": "$keywords", "count": {"$sum": 1}}},
+        pipeline = []
+        if project:
+            pipeline.append({"$match": {"ticket_client_project": project}})
+           
+        # Correction ici: utilisation correcte de la méthode extend
+        pipeline.extend([
+            {"$project": {
+                "keywordsList": {"$split": ["$keywords", ","]}  # Diviser par virgule
+            }},
+            {"$unwind": "$keywordsList"},
+            {"$group": {"_id": "$keywordsList", "count": {"$sum": 1}}},
             {"$sort": {"count": -1}},
             {"$limit": 5}
-        ]
+        ])
+       
         top_keywords = list(tickets_collection.aggregate(pipeline))
-        
+
+
         # Stats par date (nombre de tickets ajoutés par jour sur les 30 derniers jours)
         thirty_days_ago = time.time() - (30 * 24 * 60 * 60)
         pipeline_dates = [
-            {"$match": {"timestamp": {"$gte": thirty_days_ago}}},
+            {"$match": {"timestamp": {"$gte": thirty_days_ago}}}
+        ]
+       
+        if project:
+            pipeline_dates[0]["$match"]["ticket_client_project"] = project
+           
+        pipeline_dates.extend([
             {"$project": {
                 "date": {"$dateToString": {"format": "%Y-%m-%d", "date": {"$toDate": {"$multiply": ["$timestamp", 1000]}}}},
             }},
             {"$group": {"_id": "$date", "count": {"$sum": 1}}},
             {"$sort": {"_id": 1}}
-        ]
+        ])
+       
         tickets_by_date = list(tickets_collection.aggregate(pipeline_dates))
-        
+       
+        # Stats par projet
+        pipeline_projects = [
+            {"$group": {"_id": "$ticket_client_project", "count": {"$sum": 1}}},
+            {"$sort": {"count": -1}}
+        ]
+       
+        tickets_by_project = list(tickets_collection.aggregate(pipeline_projects))
+       
+        # Liste des projets pour filtrage
+        projects_list = tickets_collection.distinct("ticket_client_project")
+       
         client.close()
-        
+       
         return {
             "status": "success",
             "stats": {
                 "total_tickets": total_tickets,
                 "top_keywords": top_keywords,
-                "tickets_by_date": tickets_by_date
+                "tickets_by_date": tickets_by_date,
+                "tickets_by_project": tickets_by_project,
+                "projects_list": projects_list,
+                "current_project": project
             }
         }
-    
     except Exception as e:
         print(f"Erreur lors de la récupération des statistiques des tickets: {e}")
         return {
             "status": "error",
             "message": f"Erreur lors de la récupération des statistiques: {str(e)}"
         }
+
+
+
 
 @app.get("/admin/stats/searches", response_model=dict)
 async def get_searches_stats(current_user: dict = Depends(get_current_user), project: str = None):
@@ -688,7 +722,8 @@ async def get_searches_stats(current_user: dict = Depends(get_current_user), pro
         client = pymongo.MongoClient(MONGO_URI)
         db_access = client["Access"]
         history_collection = db_access["Historique_Messages"]
-       
+        users_collection = db_access["Users"]
+
         # Base du filtre
         match_filter = {}
        
@@ -747,20 +782,37 @@ async def get_searches_stats(current_user: dict = Depends(get_current_user), pro
             {"$match": match_filter},
             {"$group": {"_id": "$userId", "count": {"$sum": 1}}},
             {"$sort": {"count": -1}},
-            {"$limit": 5},
-            {"$lookup": {
-                "from": "Users",
-                "localField": "_id",
-                "foreignField": "_id",
-                "as": "user_info"
-            }},
-            {"$project": {
-                "username": {"$arrayElemAt": ["$user_info.username", 0]},
-                "count": 1
-            }}
+            {"$limit": 5}
         ]
-        top_users = list(history_collection.aggregate(pipeline_users))
-       
+        
+        top_users_raw = list(history_collection.aggregate(pipeline_users))
+        top_users = []
+        for user_data in top_users_raw:
+            user_id = user_data["_id"]
+            if user_id:
+                # Rechercher l'utilisateur dans la collection Users par son ID
+                user = users_collection.find_one({"_id": ObjectId(user_id)})
+                if user and "username" in user:
+                    top_users.append({
+                        "_id": user_id,
+                        "username": user["username"],
+                        "count": user_data["count"]
+                    })
+                else:
+                    # Si l'utilisateur n'est pas trouvé ou n'a pas de nom d'utilisateur
+                    top_users.append({
+                        "_id": user_id,
+                        "username": "Utilisateur inconnu",
+                        "count": user_data["count"]
+                    })
+            else:
+                # Si l'ID utilisateur est vide
+                top_users.append({
+                    "_id": None,
+                    "username": "Système",
+                    "count": user_data["count"]
+                })
+        
         # Volume de tickets traités par projet
         pipeline_project_volume = [
             {"$match": match_filter},
@@ -928,8 +980,75 @@ async def get_users_stats(current_user: dict = Depends(get_current_user)):
             "message": f"Erreur lors de la récupération des statistiques: {str(e)}"
         }
 
-
-
+@app.get("/admin/stats/database", response_model=dict)
+async def get_database_stats(current_user: dict = Depends(get_current_user)):
+    """Récupère les statistiques d'utilisation de la base de données MongoDB pour le dashboard admin."""
+    # Vérifier que l'utilisateur est un admin
+    if not current_user.get("isAdmin", False):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Accès réservé aux administrateurs"
+        )
+    
+    try:
+        # Connexion à MongoDB
+        client = pymongo.MongoClient(MONGO_URI)
+        
+        # Initialiser les variables pour stocker les tailles
+        total_size = 0
+        collections_info = []
+        
+        # Obtenir la taille des collections dans la base Access
+        db_access = client["Access"]
+        history_size = db_access.command("collStats", "Historique_Messages")["storageSize"]
+        users_size = db_access.command("collStats", "Users")["storageSize"]
+        
+        # Obtenir la taille de la collection dans la base jira
+        db_jira = client["jira"]
+        tickets_size = db_jira.command("collStats", "tickets")["storageSize"]
+        
+        # Calculer la taille totale
+        total_size = history_size + users_size + tickets_size
+        
+        # Calculer les pourcentages
+        history_percent = (history_size / total_size) * 100 if total_size > 0 else 0
+        users_percent = (users_size / total_size) * 100 if total_size > 0 else 0
+        tickets_percent = (tickets_size / total_size) * 100 if total_size > 0 else 0
+        
+        # Préparer les informations des collections
+        collections_info = [
+            {
+                "name": "Historique_Messages",
+                "size": history_size,
+                "percent": history_percent
+            },
+            {
+                "name": "Users",
+                "size": users_size,
+                "percent": users_percent
+            },
+            {
+                "name": "tickets",
+                "size": tickets_size,
+                "percent": tickets_percent
+            }
+        ]
+        
+        client.close()
+        
+        return {
+            "status": "success",
+            "stats": {
+                "total_size": total_size,
+                "collections": collections_info
+            }
+        }
+    except Exception as e:
+        print(f"Erreur lors de la récupération des statistiques de la base de données: {e}")
+        return {
+            "status": "error",
+            "message": f"Erreur lors de la récupération des statistiques: {str(e)}"
+        }
 
 # Root endpoint for API health check 
 @app.get("/") 

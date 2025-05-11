@@ -762,3 +762,42 @@ export async function getTicketDetails(historyItemId: string): Promise<any> {
     };
   }
 }
+// Ajoutez cette fonction à votre fichier fastApiService.ts
+export async function updateUserRole(userId: string, isAdmin: boolean): Promise<any> {
+  try {
+    // Vérifier si le token d'authentification est présent (pour les admins)
+    const token = localStorage.getItem('token');
+    if (!token) {
+      return {
+        status: 'error',
+        message: 'Non autorisé. Veuillez vous connecter en tant qu\'administrateur.'
+      };
+    }
+
+    const response = await axios.put(`${API_BASE_URL}/users/update-role/${userId}`,
+      {
+        isAdmin
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+   
+    console.log('User role update response:', response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error('Erreur lors de la mise à jour du rôle utilisateur:', error);
+   
+    // Récupérer le message d'erreur détaillé si disponible
+    const errorMessage = error.response?.data?.detail ||
+                        'Une erreur est survenue lors de la mise à jour du rôle utilisateur.';
+   
+    return {
+      status: 'error',
+      message: errorMessage
+    };
+  }
+}

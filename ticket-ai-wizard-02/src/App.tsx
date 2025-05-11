@@ -12,7 +12,6 @@ import { AdminUploadTicketStateProvider } from '@/components/AdminUploadTicketSt
 // Pages
 import Index from "@/pages/Index";
 import Login from "@/pages/Login";
-import Signup from "@/pages/Signup";
 import Dashboard from "@/pages/Dashboard";
 import AdminDashboard from "@/pages/AdminDashboard";
 import NotFound from "@/pages/NotFound";
@@ -66,7 +65,6 @@ const App = () => (
                       {/* Modification: La page / pointe vers l'Index au lieu du redirect */}
                       <Route path="/" element={<Index />} />
                       <Route path="/login" element={<Login />} />
-                      <Route path="/signup" element={<Signup />} />
                       <Route
                         path="/dashboard"
                         element={

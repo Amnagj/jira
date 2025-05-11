@@ -8,7 +8,11 @@ export interface TicketsStats {
   total_tickets: number;
   top_keywords: Array<{ _id: string; count: number }>;
   tickets_by_date: Array<{ _id: string; count: number }>;
+  tickets_by_project: Array<{ _id: string; count: number }>;
+  projects_list: string[];
+  current_project: string | null;
 }
+
 
 // Interface pour les statistiques des recherches
 export interface SearchesStats {
@@ -18,6 +22,11 @@ export interface SearchesStats {
   top_users: Array<{ _id: string; username: string; count: number }>;
   success_searches: number;
   error_searches: number;
+  avg_similarity: number | null;
+  similarity_distribution: Array<{ _id: number | string; count: number }>;
+  project_volume: Array<{ _id: string; count: number }>;
+  automation_rate: number;
+  projects: string[];
 }
 
 // Interface pour les statistiques système
@@ -55,7 +64,7 @@ interface ApiResponse<T> {
 }
 
 // Fonction pour récupérer les statistiques des tickets
-export async function getTicketsStats(): Promise<ApiResponse<TicketsStats>> {
+export async function getTicketsStats(project?: string): Promise<ApiResponse<TicketsStats>> {
   try {
     const token = localStorage.getItem('token');
     if (!token) {
@@ -65,11 +74,17 @@ export async function getTicketsStats(): Promise<ApiResponse<TicketsStats>> {
       };
     }
 
-    const response = await axios.get(`${API_BASE_URL}/admin/stats/tickets`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
+
+    const url = project ?
+            `${API_BASE_URL}/admin/stats/tickets?project=${encodeURIComponent(project)}` :
+            `${API_BASE_URL}/admin/stats/tickets`;
+           
+        const response = await axios.get(url, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
 
     return response.data;
   } catch (error: any) {
@@ -80,6 +95,9 @@ export async function getTicketsStats(): Promise<ApiResponse<TicketsStats>> {
     };
   }
 }
+
+
+
 export interface SearchesStats {
   total_searches: number;
   searches_by_date: Array<{ _id: string; count: number }>;
@@ -178,23 +196,62 @@ export async function getUsersStats(): Promise<ApiResponse<UsersStats>> {
 }
 
 // Fonction pour récupérer toutes les statistiques en une seule fois
+// Fonction pour récupérer toutes les statistiques en une seule fois
 export async function getAllStats(): Promise<{
-  tickets: ApiResponse<TicketsStats>;
-  searches: ApiResponse<SearchesStats>;
-  system: ApiResponse<SystemStats>;
-  users: ApiResponse<UsersStats>;
+    tickets: ApiResponse<TicketsStats>;
+    searches: ApiResponse<SearchesStats>;
+    system: ApiResponse<SystemStats>;
+    users: ApiResponse<UsersStats>;
+    database: ApiResponse<DatabaseStats>;
 }> {
-  const [ticketsStats, searchesStats, systemStats, usersStats] = await Promise.all([
-    getTicketsStats(),
-    getSearchesStats(),
-    getSystemStats(),
-    getUsersStats()
-  ]);
+    const [ticketsStats, searchesStats, systemStats, usersStats, databaseStats] = await Promise.all([
+        getTicketsStats(),
+        getSearchesStats(),
+        getSystemStats(),
+        getUsersStats(),
+        getDatabaseStats()
+    ]);
+    return {
+        tickets: ticketsStats,
+        searches: searchesStats,
+        system: systemStats,
+        users: usersStats,
+        database: databaseStats
+    };
+}
 
-  return {
-    tickets: ticketsStats,
-    searches: searchesStats,
-    system: systemStats,
-    users: usersStats
-  };
+
+// Interface pour les statistiques de la base de données
+export interface DatabaseStats {
+    total_size: number;
+    collections: Array<{
+        name: string;
+        size: number;
+        percent: number;
+    }>;
+}
+
+// Fonction pour récupérer les statistiques de la base de données
+export async function getDatabaseStats(): Promise<ApiResponse<DatabaseStats>> {
+    try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+            return {
+                status: 'error',
+                message: 'Non authentifié'
+            };
+        }
+        const response = await axios.get(`${API_BASE_URL}/admin/stats/database`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        return response.data;
+    } catch (error: any) {
+        console.error('Erreur lors de la récupération des statistiques de la base de données:', error);
+        return {
+            status: 'error',
+            message: error.response?.data?.message || error.message || 'Erreur inconnue'
+        };
+    }
 }

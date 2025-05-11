@@ -1,47 +1,76 @@
 import React from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { SystemStats } from "@/api/dashboardService";
+import { SystemStats, DatabaseStats } from "@/api/dashboardService";
 import { cn } from "@/lib/utils";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { ClockIcon, HardDriveIcon, CpuIcon, MemoryStickIcon } from "lucide-react";
-
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+} from "recharts";
+import {
+  ClockIcon,
+  HardDriveIcon,
+  CpuIcon,
+  MemoryStickIcon,
+  DatabaseIcon,
+} from "lucide-react";
 
 interface SystemOverviewProps {
   stats: SystemStats | null;
+  dbStats: DatabaseStats | null;
   isDark: boolean;
 }
 
-
 // Function to format bytes to readable format
 const formatBytes = (bytes: number, decimals = 2) => {
-  if (bytes === 0) return '0 Bytes';
+  if (bytes === 0) return "0 Bytes";
   const k = 1024;
   const dm = decimals < 0 ? 0 : decimals;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+  const sizes = ["Bytes", "KB", "MB", "GB", "TB"];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i];
 };
-
 
 // Function to format uptime
 const formatUptime = (hours: number) => {
   const days = Math.floor(hours / 24);
   const remainingHours = Math.floor(hours % 24);
   const minutes = Math.floor((hours * 60) % 60);
- 
   if (days > 0) {
     return `${days}j ${remainingHours}h ${minutes}m`;
   }
   return `${remainingHours}h ${minutes}m`;
 };
 
-
-const SystemOverview: React.FC<SystemOverviewProps> = ({ stats, isDark }) => {
+const SystemOverview: React.FC<SystemOverviewProps> = ({
+  stats,
+  dbStats,
+  isDark,
+}) => {
   if (!stats) {
     return <div>Aucune donnée système disponible</div>;
   }
 
+  // Calculate total database size (sum of all collections)
+  const totalDatabaseSize =
+    dbStats?.collections?.reduce(
+      (total, collection) => total + collection.size,
+      0
+    ) || 0;
 
   // Generate some mock usage history data (in a real app this would come from your backend)
   const generateHistoryData = (current: number, hours = 24) => {
@@ -49,19 +78,23 @@ const SystemOverview: React.FC<SystemOverviewProps> = ({ stats, isDark }) => {
     const now = new Date();
     for (let i = hours; i >= 0; i--) {
       const time = new Date(now.getTime() - i * 60 * 60 * 1000);
-      const value = Math.max(20, Math.min(current - 15 + Math.random() * 30, 100));
+      const value = Math.max(
+        20,
+        Math.min(current - 15 + Math.random() * 30, 100)
+      );
       data.push({
-        time: time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        value: Math.round(value)
+        time: time.toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+        value: Math.round(value),
       });
     }
     return data;
   };
 
-
   const cpuHistory = generateHistoryData(stats.cpu_percent);
   const memoryHistory = generateHistoryData(stats.memory_usage.percent);
-
 
   // Colors for charts
   const cpuColor = isDark ? "#7c3aed" : "#6366f1";
@@ -69,42 +102,52 @@ const SystemOverview: React.FC<SystemOverviewProps> = ({ stats, isDark }) => {
   const diskColors = isDark
     ? ["#7c3aed", "#2dd4bf", "#333333"]
     : ["#6366f1", "#0ea5e9", "#e5e7eb"];
-
+  const dbColors = isDark
+    ? ["#6366f1", "#8b5cf6", "#d946ef"]
+    : ["#3b82f6", "#8b5cf6", "#e879f9"];
 
   // Disk usage data for pie chart
   const diskData = [
-    { name: 'Utilisé', value: stats.disk_usage.used },
-    { name: 'Libre', value: stats.disk_usage.free }
+    { name: "Utilisé", value: stats.disk_usage.used },
+    { name: "Libre", value: stats.disk_usage.free },
   ];
 
+  // Database collections data for pie chart
+  const dbData = dbStats?.collections
+    ? dbStats.collections.map((collection) => ({
+        name: collection.name,
+        value: collection.size,
+      }))
+    : [];
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       {/* CPU Usage Card */}
-      <Card className={cn(
-        "overflow-hidden",
-        isDark ? "bg-card/70 border-white/10" : "bg-white"
-      )}>
+      <Card
+        className={cn(
+          "overflow-hidden",
+          isDark ? "bg-card/70 border-white/10" : "bg-white"
+        )}
+      >
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <div>
             <CardTitle className="text-lg font-medium">CPU</CardTitle>
-            <CardDescription>
-              Utilisation du processeur
-            </CardDescription>
+            <CardDescription>Utilisation du processeur</CardDescription>
           </div>
-          <CpuIcon className={cn(
-            "w-5 h-5",
-            isDark ? "text-white/70" : "text-gray-500"
-          )} />
+          <CpuIcon
+            className={cn(
+              "w-5 h-5",
+              isDark ? "text-white/70" : "text-gray-500"
+            )}
+          />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold mb-2">{stats.cpu_percent.toFixed(1)}%</div>
+          <div className="text-2xl font-bold mb-2">
+            {stats.cpu_percent.toFixed(1)}%
+          </div>
           <Progress
             value={stats.cpu_percent}
-            className={cn(
-              "h-2",
-              isDark ? "bg-gray-700" : "bg-gray-200"
-            )}
+            className={cn("h-2", isDark ? "bg-gray-700" : "bg-gray-200")}
           />
           <div className="h-64 mt-4">
             <ResponsiveContainer width="100%" height="100%">
@@ -122,11 +165,11 @@ const SystemOverview: React.FC<SystemOverviewProps> = ({ stats, isDark }) => {
                   stroke={isDark ? "#aaa" : "#666"}
                 />
                 <Tooltip
-                  formatter={(value) => [`${value}%`, 'CPU']}
+                  formatter={(value) => [`${value}%`, "CPU"]}
                   contentStyle={{
-                    backgroundColor: isDark ? '#1e293b' : '#fff',
-                    borderColor: isDark ? '#334155' : '#e2e8f0',
-                    color: isDark ? '#fff' : '#333'
+                    backgroundColor: isDark ? "#1e293b" : "#fff",
+                    borderColor: isDark ? "#334155" : "#e2e8f0",
+                    color: isDark ? "#fff" : "#333",
                   }}
                 />
                 <Line
@@ -143,23 +186,24 @@ const SystemOverview: React.FC<SystemOverviewProps> = ({ stats, isDark }) => {
         </CardContent>
       </Card>
 
-
       {/* Memory Usage Card */}
-      <Card className={cn(
-        "overflow-hidden",
-        isDark ? "bg-card/70 border-white/10" : "bg-white"
-      )}>
+      <Card
+        className={cn(
+          "overflow-hidden",
+          isDark ? "bg-card/70 border-white/10" : "bg-white"
+        )}
+      >
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <div>
             <CardTitle className="text-lg font-medium">Mémoire</CardTitle>
-            <CardDescription>
-              Utilisation de la RAM
-            </CardDescription>
+            <CardDescription>Utilisation de la RAM</CardDescription>
           </div>
-          <MemoryStickIcon className={cn(
-            "w-5 h-5",
-            isDark ? "text-white/70" : "text-gray-500"
-          )} />
+          <MemoryStickIcon
+            className={cn(
+              "w-5 h-5",
+              isDark ? "text-white/70" : "text-gray-500"
+            )}
+          />
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold mb-2">
@@ -167,13 +211,11 @@ const SystemOverview: React.FC<SystemOverviewProps> = ({ stats, isDark }) => {
           </div>
           <Progress
             value={stats.memory_usage.percent}
-            className={cn(
-              "h-2",
-              isDark ? "bg-gray-700" : "bg-gray-200"
-            )}
+            className={cn("h-2", isDark ? "bg-gray-700" : "bg-gray-200")}
           />
           <div className="text-sm mt-2">
-            {formatBytes(stats.memory_usage.used)} utilisés sur {formatBytes(stats.memory_usage.total)}
+            {formatBytes(stats.memory_usage.used)} utilisés sur{" "}
+            {formatBytes(stats.memory_usage.total)}
           </div>
           <div className="h-64 mt-4">
             <ResponsiveContainer width="100%" height="100%">
@@ -191,11 +233,11 @@ const SystemOverview: React.FC<SystemOverviewProps> = ({ stats, isDark }) => {
                   stroke={isDark ? "#aaa" : "#666"}
                 />
                 <Tooltip
-                  formatter={(value) => [`${value}%`, 'Mémoire']}
+                  formatter={(value) => [`${value}%`, "Mémoire"]}
                   contentStyle={{
-                    backgroundColor: isDark ? '#1e293b' : '#fff',
-                    borderColor: isDark ? '#334155' : '#e2e8f0',
-                    color: isDark ? '#fff' : '#333'
+                    backgroundColor: isDark ? "#1e293b" : "#fff",
+                    borderColor: isDark ? "#334155" : "#e2e8f0",
+                    color: isDark ? "#fff" : "#333",
                   }}
                 />
                 <Line
@@ -212,35 +254,36 @@ const SystemOverview: React.FC<SystemOverviewProps> = ({ stats, isDark }) => {
         </CardContent>
       </Card>
 
-
       {/* Disk Usage Card */}
-      <Card className={cn(
-        "overflow-hidden",
-        isDark ? "bg-card/70 border-white/10" : "bg-white"
-      )}>
+      <Card
+        className={cn(
+          "overflow-hidden",
+          isDark ? "bg-card/70 border-white/10" : "bg-white"
+        )}
+      >
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <div>
             <CardTitle className="text-lg font-medium">Disque</CardTitle>
-            <CardDescription>
-              Utilisation de l'espace disque
-            </CardDescription>
+            <CardDescription>Utilisation de l'espace disque</CardDescription>
           </div>
-          <HardDriveIcon className={cn(
-            "w-5 h-5",
-            isDark ? "text-white/70" : "text-gray-500"
-          )} />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold mb-2">{stats.disk_usage.percent.toFixed(1)}%</div>
-          <Progress
-            value={stats.disk_usage.percent}
+          <HardDriveIcon
             className={cn(
-              "h-2",
-              isDark ? "bg-gray-700" : "bg-gray-200"
+              "w-5 h-5",
+              isDark ? "text-white/70" : "text-gray-500"
             )}
           />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold mb-2">
+            {stats.disk_usage.percent.toFixed(1)}%
+          </div>
+          <Progress
+            value={stats.disk_usage.percent}
+            className={cn("h-2", isDark ? "bg-gray-700" : "bg-gray-200")}
+          />
           <div className="text-sm mt-2">
-            {formatBytes(stats.disk_usage.used)} utilisés sur {formatBytes(stats.disk_usage.total)}
+            {formatBytes(stats.disk_usage.used)} utilisés sur{" "}
+            {formatBytes(stats.disk_usage.total)}
           </div>
           <div className="h-64 mt-4 flex items-center justify-center">
             <ResponsiveContainer width="80%" height="80%">
@@ -253,19 +296,27 @@ const SystemOverview: React.FC<SystemOverviewProps> = ({ stats, isDark }) => {
                   outerRadius={80}
                   paddingAngle={5}
                   dataKey="value"
-                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                  label={({ name, percent }) =>
+                    `${name}: ${(percent * 100).toFixed(0)}%`
+                  }
                   labelLine={false}
                 >
                   {diskData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={diskColors[index % diskColors.length]} />
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={diskColors[index % diskColors.length]}
+                    />
                   ))}
                 </Pie>
                 <Tooltip
-                  formatter={(value) => [formatBytes(value as number), 'Espace']}
+                  formatter={(value) => [
+                    formatBytes(value as number),
+                    "Espace",
+                  ]}
                   contentStyle={{
-                    backgroundColor: isDark ? '#1e293b' : '#fff',
-                    borderColor: isDark ? '#334155' : '#e2e8f0',
-                    color: isDark ? '#fff' : '#333'
+                    backgroundColor: isDark ? "#1e293b" : "#fff",
+                    borderColor: isDark ? "#334155" : "#e2e8f0",
+                    color: isDark ? "#fff" : "#333",
                   }}
                 />
               </PieChart>
@@ -274,34 +325,127 @@ const SystemOverview: React.FC<SystemOverviewProps> = ({ stats, isDark }) => {
         </CardContent>
       </Card>
 
-
-      {/* System Uptime Card */}
-      <Card className={cn(
-        "overflow-hidden",
-        isDark ? "bg-card/70 border-white/10" : "bg-white"
-      )}>
+      {/* Database Usage Card */}
+      <Card
+        className={cn(
+          "overflow-hidden",
+          isDark ? "bg-card/70 border-white/10" : "bg-white"
+        )}
+      >
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <div>
-            <CardTitle className="text-lg font-medium">Temps de fonctionnement</CardTitle>
-            <CardDescription>
-              Depuis le dernier redémarrage
-            </CardDescription>
+            <CardTitle className="text-lg font-medium">
+              Base de données
+            </CardTitle>
+            <CardDescription>Utilisation de l'espace MongoDB</CardDescription>
           </div>
-          <ClockIcon className={cn(
-            "w-5 h-5",
-            isDark ? "text-white/70" : "text-gray-500"
-          )} />
+          <DatabaseIcon
+            className={cn(
+              "w-5 h-5",
+              isDark ? "text-white/70" : "text-gray-500"
+            )}
+          />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{formatUptime(stats.uptime_hours)}</div>
+          {dbStats ? (
+            <>
+              <div className="text-2xl font-bold mb-2">
+                {formatBytes(totalDatabaseSize)}
+              </div>
+
+              {/* Nouvelle barre de progression combinée */}
+              <div className="mb-4">
+                <div className="flex justify-between text-sm mb-1">
+                  <span>Espace total utilisé</span>
+                  <span>{formatBytes(totalDatabaseSize)} sur 15 GB</span>
+                </div>
+                <Progress
+                  value={(totalDatabaseSize / (15 * 1024 * 1024 * 1024)) * 100} // Convertir 15 GB en octets et calculer le pourcentage
+                  className={cn("h-2", isDark ? "bg-gray-700" : "bg-gray-200")}
+                />
+              </div>
+              <div className="h-56 mt-4 flex items-center justify-center">
+                <ResponsiveContainer width="80%" height="80%">
+                  <PieChart>
+                    <Pie
+                      data={dbData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={80}
+                      paddingAngle={5}
+                      dataKey="value"
+                      label={({ name, percent }) => name} // Afficher uniquement le nom pour plus de lisibilité
+                      labelLine={true} // Activer les lignes de connexion
+                    >
+                      {dbData.map((entry, index) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={dbColors[index % dbColors.length]}
+                        />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      formatter={(value) => [
+                        formatBytes(value as number),
+                        "Espace",
+                      ]}
+                      contentStyle={{
+                        backgroundColor: isDark ? "#1e293b" : "#fff",
+                        borderColor: isDark ? "#334155" : "#e2e8f0",
+                        color: isDark ? "#fff" : "#333",
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </>
+          ) : (
+            <div className="flex items-center justify-center h-64">
+              <p>Aucune donnée disponible</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* System Uptime Card */}
+      <Card
+        className={cn(
+          "overflow-hidden",
+          isDark ? "bg-card/70 border-white/10" : "bg-white"
+        )}
+      >
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <div>
+            <CardTitle className="text-lg font-medium">
+              Temps de fonctionnement
+            </CardTitle>
+            <CardDescription>Depuis le dernier redémarrage</CardDescription>
+          </div>
+          <ClockIcon
+            className={cn(
+              "w-5 h-5",
+              isDark ? "text-white/70" : "text-gray-500"
+            )}
+          />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">
+            {formatUptime(stats.uptime_hours)}
+          </div>
           <div className="mt-4 text-sm">
             <div className="flex justify-between mb-2">
               <span>Démarré le:</span>
               <span>
-                {new Date(Date.now() - stats.uptime_hours * 3600 * 1000).toLocaleDateString()} à {' '}
-                {new Date(Date.now() - stats.uptime_hours * 3600 * 1000).toLocaleTimeString([], {
-                  hour: '2-digit',
-                  minute: '2-digit'
+                {new Date(
+                  Date.now() - stats.uptime_hours * 3600 * 1000
+                ).toLocaleDateString()}{" "}
+                à{" "}
+                {new Date(
+                  Date.now() - stats.uptime_hours * 3600 * 1000
+                ).toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
                 })}
               </span>
             </div>
@@ -312,7 +456,4 @@ const SystemOverview: React.FC<SystemOverviewProps> = ({ stats, isDark }) => {
   );
 };
 
-
 export default SystemOverview;
-
-

@@ -445,7 +445,7 @@ J'ai trouvé une solution pour votre ticket!
         )}
       </div>
       {/* Instructions avec affichage conditionnel et taille adaptative */}
-      {(!file || isMinimized) && (
+      {(!file ) && (
         <div
           className={cn(
             "transition-all duration-300",

@@ -354,7 +354,7 @@ export const TicketDetails = ({ ticketData, loading }: TicketDetailsProps) => {
           {/* En-tête avec chronomètre intégré */}
           <div
             className={cn(
-              "sticky top-2 z-10 backdrop-blur-md rounded-xl mb-4 py-3 px-4",
+              "sticky top-2 z-10 backdrop-blur-md rounded-xl mb-2 py-2 px-3",
               isDark
                 ? "bg-blue-950/80 text-blue-100 border border-blue-900/50"
                 : "bg-blue-50/90 text-blue-800 border border-blue-100"
@@ -446,26 +446,26 @@ export const TicketDetails = ({ ticketData, loading }: TicketDetailsProps) => {
                 className="overflow-hidden"
               >
                 {/* Champs clé et résumé sur toute la largeur */}
-                <div className="grid gap-4 mb-4 grid-cols-1">
+                <div className="grid gap-2 mb-2 grid-cols-1">
                   {visibleFields
                     .filter(field => field.key === "key" || field.key === "summary")
                     .map((field, fieldIndex) => (
                       <motion.div
-                        key={`${field.key}-${fieldIndex}`} 
+                        key={`${field.key}-${fieldIndex}`}
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.3, delay: fieldIndex * 0.05 }}
                         className={cn(
-                          "p-4 rounded-xl shadow-sm",
+                          "p-3 rounded-lg shadow-sm",
                           isDark
                             ? "bg-gradient-to-br from-blue-900/20 to-blue-800/40 border border-blue-800/20"
                             : "bg-gradient-to-br from-blue-50 to-blue-100/50 border border-blue-200/30"
                         )}
                       >
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2">
                           <div
                             className={cn(
-                              "w-7 h-7 rounded-lg flex-shrink-0 flex items-center justify-center",
+                              "w-6 h-6 rounded-md flex-shrink-0 flex items-center justify-center",
                               isDark ? "bg-blue-700/50" : "bg-blue-200"
                             )}
                           >
@@ -473,7 +473,7 @@ export const TicketDetails = ({ ticketData, loading }: TicketDetailsProps) => {
                           </div>
                           <div
                             className={cn(
-                              "text-sm font-medium",
+                              "text-xs font-medium",
                               isDark ? "text-blue-200" : "text-blue-700"
                             )}
                           >
@@ -482,7 +482,7 @@ export const TicketDetails = ({ ticketData, loading }: TicketDetailsProps) => {
                         </div>
                         <div
                           className={cn(
-                            "mt-3 p-3 rounded-lg",
+                            "mt-2 p-2 rounded-md",
                             isDark ? "bg-blue-900/20" : "bg-blue-50/80"
                           )}
                         >
@@ -496,7 +496,7 @@ export const TicketDetails = ({ ticketData, loading }: TicketDetailsProps) => {
                 </div>
 
                 {/* Autres champs en grille 2x2 */}
-                <div className="grid gap-4 mb-4 grid-cols-1 md:grid-cols-2">
+                <div className="grid gap-2 mb-2 grid-cols-1 md:grid-cols-2">
                   {visibleFields
                     .filter(field => field.key !== "key" && field.key !== "summary")
                     .map((field, fieldIndex) => (
@@ -506,7 +506,7 @@ export const TicketDetails = ({ ticketData, loading }: TicketDetailsProps) => {
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.3, delay: fieldIndex * 0.05 }}
                         className={cn(
-                          "p-4 rounded-xl shadow-sm h-full",
+                          "p-2.5 rounded-lg shadow-sm h-full",
                           isDark
                             ? "bg-blue-900/10 border border-blue-800/30"
                             : "bg-white border border-blue-100/80"
@@ -532,7 +532,7 @@ export const TicketDetails = ({ ticketData, loading }: TicketDetailsProps) => {
                         </div>
                         <div
                           className={cn(
-                            "mt-3 p-3 rounded-lg",
+                            "mt-2 p-2 rounded-md",
                             isDark ? "bg-blue-900/20" : "bg-blue-50/80"
                           )}
                         >

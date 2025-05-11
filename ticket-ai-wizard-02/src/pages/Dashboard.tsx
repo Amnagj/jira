@@ -176,7 +176,7 @@ const Dashboard = () => {
                   </div>
                   
                   {/* File upload component with improved layout */}
-                  <div className="max-h-[280px] overflow-y-auto">
+                  <div className="overflow-visible">
                     <TicketUpload
                       onFileUploaded={handleFileUploaded}
                       onTicketDataExtracted={handleTicketDataExtracted}
