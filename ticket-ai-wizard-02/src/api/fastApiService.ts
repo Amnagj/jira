@@ -93,16 +93,16 @@ export async function searchSimilarTickets(ticketText: string): Promise<TicketSe
       if (token && user) {
           try {
               // Calculer le score de similarité moyen s'il existe des tickets
-              let avgSimilarity = null;
+              let maxSimilarity = null;
               if (response.data?.tickets && response.data.tickets.length > 0) {
                   const similarityScores = response.data.tickets.map((t: any) => t.similarity_score || 0);
-                  avgSimilarity = similarityScores.reduce((sum: number, score: number) => sum + score, 0) / similarityScores.length;
+                  const maxSimilarity = Math.max(...similarityScores);  // Utiliser le score max
               }
               
               await addSearchToHistory(ticketText, {
                   result: JSON.stringify(response.data),
                   ticketIds: response.data?.tickets?.map((t: any) => t.ticket_id) || [],
-                  similarity_score: avgSimilarity,  // Ajouter le score de similarité moyen
+                  similarity_score: maxSimilarity,  // Ajouter le score de similarité moyen
                   search_time: response.data?.temps_recherche || null  // Ajouter le temps de recherche
               });
           } catch (error) {

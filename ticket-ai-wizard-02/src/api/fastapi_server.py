@@ -6,6 +6,7 @@ To run this server, install FastAPI and uvicorn:
 Then run: 
     uvicorn fastapi_server:app --reload 
 """ 
+from queue import Full
 from urllib import request
 from fastapi import Body 
 from fastapi.security import OAuth2PasswordRequestForm , OAuth2PasswordBearer 
@@ -20,9 +21,15 @@ import tempfile
 import shutil 
 import sys 
 import time 
-from backend.history_management import add_history_item, get_user_history, hide_history_item, clear_user_history , connect_to_mongodb , json_compatible_result
+from backend.history_management import MONGO_URI, add_history_item, get_user_history, hide_history_item, clear_user_history , connect_to_mongodb , json_compatible_result
 from src.api.users_endpoints import router as users_router
 from bson import ObjectId
+from datetime import datetime, timedelta
+from bson.objectid import ObjectId
+import pymongo
+import statistics
+import time
+from fastapi import Depends, HTTPException, status
 
 
 
@@ -127,102 +134,104 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
 
 @app.post("/upload-file", response_model=SearchResponse) 
 async def upload_file(file: UploadFile = File(...), current_user: dict = Depends(get_current_user_optional)): 
-    try: 
-        # Créer un fichier temporaire 
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx') as tmp: 
-            # Copier le fichier uploadé dans le fichier temporaire 
-            shutil.copyfileobj(file.file, tmp) 
-            temp_file_path = tmp.name 
-            
-        print(f"Fichier temporaire créé: {temp_file_path}") 
-        
-        try: 
-            # Vérifier que le fichier existe 
-            if not os.path.exists(temp_file_path): 
-                raise HTTPException( 
-                    status_code=500, 
-                    detail="Le fichier temporaire n'a pas été correctement créé" 
-                ) 
-                
-            # Essayer de lire le fichier avec pandas d'abord pour vérifier qu'il est lisible 
-            import pandas as pd 
-            try: 
-                df = pd.read_excel(temp_file_path) 
-                print(f"Fichier Excel lu avec succès, {len(df)} lignes trouvées") 
-            except Exception as excel_error: 
-                print(f"Erreur lors de la lecture du fichier Excel: {excel_error}") 
-                raise HTTPException( 
-                    status_code=500, 
-                    detail=f"Erreur lors de la lecture du fichier Excel: {str(excel_error)}" 
-                ) 
-            
-            # Importer la classe de recherche d'embeddings avec gestion d'erreurs 
-            try: 
-                from backend.embeddings_final import RechercheTicketsEmbeddingsOptimized 
-                print("Module embeddings_final importé avec succès") 
-            except ImportError as import_error: 
-                print(f"Erreur d'importation du module embeddings_final: {import_error}") 
-                # Nettoyer et renvoyer une erreur 
-                os.unlink(temp_file_path) 
-                raise HTTPException( 
-                    status_code=500, 
-                    detail=f"Erreur d'importation du module embeddings_final: {str(import_error)}" 
-                ) 
-            
-            # Initialiser le moteur de recherche avec le chemin du fichier 
-            try: 
-                from backend.embeddings_final import CONFIG 
-                custom_config = CONFIG.copy()  # Copier la configuration par défaut 
-                custom_config["PATHS"]["excel_input"] = temp_file_path  # Mettre à jour le chemin du fichier Excel 
-                recherche = RechercheTicketsEmbeddingsOptimized(config=custom_config) 
-                print("Instance de RechercheTicketsEmbeddingsOptimized créée") 
-            except Exception as instance_error: 
-                print(f"Erreur lors de la création de l'instance RechercheTicketsEmbeddingsOptimized: {instance_error}") 
-                # Nettoyer et renvoyer une erreur 
-                os.unlink(temp_file_path) 
-                raise HTTPException( 
-                    status_code=500, 
-                    detail=f"Erreur lors de l'initialisation du moteur de recherche: {str(instance_error)}" 
-                ) 
+    try:
+        # Créer un fichier temporaire
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx') as tmp:
+            # Copier le fichier uploadé dans le fichier temporaire
+            shutil.copyfileobj(file.file, tmp)
+            temp_file_path = tmp.name
+           
+        print(f"Fichier temporaire créé: {temp_file_path}")
+       
+        try:
+            # Vérifier que le fichier existe
+            if not os.path.exists(temp_file_path):
+                raise HTTPException(
+                    status_code=500,
+                    detail="Le fichier temporaire n'a pas été correctement créé"
+                )
+               
+            # Essayer de lire le fichier avec pandas d'abord pour vérifier qu'il est lisible
+            import pandas as pd
+            try:
+                df = pd.read_excel(temp_file_path)
+                print(f"Fichier Excel lu avec succès, {len(df)} lignes trouvées")
+            except Exception as excel_error:
+                print(f"Erreur lors de la lecture du fichier Excel: {excel_error}")
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Erreur lors de la lecture du fichier Excel: {str(excel_error)}"
+                )
+            try:
+                from backend.embeddings_final import RechercheTicketsEmbeddingsOptimized
+                print("Module embeddings_final importé avec succès")
+            except ImportError as import_error:
+                print(f"Erreur d'importation du module embeddings_final: {import_error}")
+                # Nettoyer et renvoyer une erreur
+                os.unlink(temp_file_path)
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Erreur d'importation du module embeddings_final: {str(import_error)}"
+                )
+           
+            # Initialiser le moteur de recherche avec le chemin du fichier
+            try:
+                from backend.embeddings_final import CONFIG
+                custom_config = CONFIG.copy()  # Copier la configuration par défaut
+                custom_config["PATHS"]["excel_input"] = temp_file_path  # Mettre à jour le chemin du fichier Excel
+                recherche = RechercheTicketsEmbeddingsOptimized(config=custom_config)
+                print("Instance de RechercheTicketsEmbeddingsOptimized créée")
+            except Exception as instance_error:
+                print(f"Erreur lors de la création de l'instance RechercheTicketsEmbeddingsOptimized: {instance_error}")
+                # Nettoyer et renvoyer une erreur
+                os.unlink(temp_file_path)
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Erreur lors de l'initialisation du moteur de recherche: {str(instance_error)}"
+                )
 
-            # Lire le contenu du fichier Excel avec gestion d'erreurs 
-            try: 
-                resultats = recherche.traiter_fichier_excel()  # Utiliser la méthode qui traite le fichier 
-                print(f"Fichier Excel traité avec succès, {len(resultats) if resultats else 0} résultats trouvés") 
-            except Exception as process_error: 
-                print(f"Erreur lors du traitement du fichier Excel: {process_error}") 
-                # Nettoyer et renvoyer une erreur 
-                os.unlink(temp_file_path) 
-                raise HTTPException( 
-                    status_code=500, 
-                    detail=f"Erreur lors du traitement du fichier Excel: {str(process_error)}" 
-                ) 
 
-            # Nettoyer le fichier temporaire 
-            os.unlink(temp_file_path) 
-            print("Fichier temporaire supprimé") 
-            
+            # Lire le contenu du fichier Excel avec gestion d'erreurs
+            try:
+                resultats = recherche.traiter_fichier_excel()  # Utiliser la méthode qui traite le fichier
+                print(f"Fichier Excel traité avec succès, {len(resultats) if resultats else 0} résultats trouvés")
+            except Exception as process_error:
+                print(f"Erreur lors du traitement du fichier Excel: {process_error}")
+                # Nettoyer et renvoyer une erreur
+                os.unlink(temp_file_path)
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Erreur lors du traitement du fichier Excel: {str(process_error)}"
+                )
+            os.unlink(temp_file_path)
+            print("Fichier temporaire supprimé")
+           
             if current_user and resultats and len(resultats) > 0:
                 try:
+                    
                     # Extraire les données pertinentes
                     tickets = resultats[0].get("tickets", [])
                     temps_recherche = resultats[0].get("temps_recherche", None)
-                    
+                    additional_fields = resultats[0].get("additional_fields", {})
+
                     # Calculer le score de similarité moyen s'il existe des tickets
-                    avg_similarity = None
+                    max_similarity = None
                     if tickets:
                         similarity_scores = [ticket.get("similarity_score", 0) for ticket in tickets]
                         if similarity_scores:
-                            avg_similarity = sum(similarity_scores) / len(similarity_scores)
+                            max_similarity = max(similarity_scores)
                     
-                    # Utiliser la fonction add_history_item pour enregistrer dans MongoDB
                     add_history_item(
                         user_id=current_user["id"],
                         query_text=file.filename, # Utiliser le nom du fichier comme requête
                         result=resultats[0].get("message", ""),
                         ticket_ids=[ticket["ticket_id"] for ticket in tickets] if tickets else [],
-                        similarity_score=avg_similarity,  # Ajouter le score de similarité moyen
-                        search_time=temps_recherche  # Ajouter le temps de recherche
+                        similarity_score=max_similarity,  # Ajouter le score de similarité moyen
+                        search_time=temps_recherche,
+                        key=additional_fields.get('key'),
+                        type=additional_fields.get('type'), 
+                        priority=additional_fields.get('priority'),
+                        client_project=additional_fields.get('client_project')
                     )
                     print("Résultat ajouté à l'historique avec succès")
                 except Exception as hist_error:
@@ -272,7 +281,10 @@ async def add_search_to_history(
         ticket_ids = data.get("ticketIds", []) # Récupérer directement les ticketIds
         similarity_score = data.get("similarity_score", None) # Récupérer le taux de similarité
         search_time = data.get("search_time", None) # Récupérer le temps de recherche
-        
+        key = data.get("key","") 
+        type_field = data.get("type","") 
+        priority = data.get("priority","") 
+        client_project = data.get("client_project","")
         # Ajouter à l'historique avec les nouveaux paramètres
         history_item = add_history_item(
             user_id=current_user["id"],
@@ -280,7 +292,12 @@ async def add_search_to_history(
             result=result,
             ticket_ids=ticket_ids,
             similarity_score=similarity_score,
-            search_time=search_time
+            search_time=search_time,
+            key=key,
+            type=type_field,
+            priority=priority,
+            client_project=client_project
+
         )
         return history_item
     except Exception as e:
@@ -596,6 +613,324 @@ async def get_history_details(
             "status": "error",
             "message": f"Erreur lors de la récupération des détails de l'historique: {str(e)}"
         }
+    
+@app.get("/admin/stats/tickets", response_model=dict)
+async def get_tickets_stats(current_user: dict = Depends(get_current_user)):
+    """Récupère les statistiques sur les tickets pour le dashboard admin."""
+    # Vérifier que l'utilisateur est un admin
+    if not current_user.get("isAdmin", False):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Accès réservé aux administrateurs"
+        )
+    
+    try:
+        # Connexion à MongoDB
+        client = pymongo.MongoClient(MONGO_URI)
+        db_jira = client["jira"]
+        tickets_collection = db_jira["tickets"]
+        
+        # Statistiques sur les tickets
+        total_tickets = tickets_collection.count_documents({})
+        
+        # Obtenir les 5 mots-clés les plus fréquents
+        pipeline = [
+            {"$project": {"keywords": 1}},
+            {"$unwind": {"path": "$keywords", "preserveNullAndEmptyArrays": False}},
+            {"$group": {"_id": "$keywords", "count": {"$sum": 1}}},
+            {"$sort": {"count": -1}},
+            {"$limit": 5}
+        ]
+        top_keywords = list(tickets_collection.aggregate(pipeline))
+        
+        # Stats par date (nombre de tickets ajoutés par jour sur les 30 derniers jours)
+        thirty_days_ago = time.time() - (30 * 24 * 60 * 60)
+        pipeline_dates = [
+            {"$match": {"timestamp": {"$gte": thirty_days_ago}}},
+            {"$project": {
+                "date": {"$dateToString": {"format": "%Y-%m-%d", "date": {"$toDate": {"$multiply": ["$timestamp", 1000]}}}},
+            }},
+            {"$group": {"_id": "$date", "count": {"$sum": 1}}},
+            {"$sort": {"_id": 1}}
+        ]
+        tickets_by_date = list(tickets_collection.aggregate(pipeline_dates))
+        
+        client.close()
+        
+        return {
+            "status": "success",
+            "stats": {
+                "total_tickets": total_tickets,
+                "top_keywords": top_keywords,
+                "tickets_by_date": tickets_by_date
+            }
+        }
+    
+    except Exception as e:
+        print(f"Erreur lors de la récupération des statistiques des tickets: {e}")
+        return {
+            "status": "error",
+            "message": f"Erreur lors de la récupération des statistiques: {str(e)}"
+        }
+
+@app.get("/admin/stats/searches", response_model=dict)
+async def get_searches_stats(current_user: dict = Depends(get_current_user), project: str = None):
+    """Récupère les statistiques sur les recherches pour le dashboard admin."""
+    # Vérifier que l'utilisateur est un admin
+    if not current_user.get("isAdmin", False):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Accès réservé aux administrateurs"
+        )
+   
+    try:
+        # Connexion à MongoDB
+        client = pymongo.MongoClient(MONGO_URI)
+        db_access = client["Access"]
+        history_collection = db_access["Historique_Messages"]
+       
+        # Base du filtre
+        match_filter = {}
+       
+        # Ajouter un filtre par projet si spécifié
+        if project:
+            # Filtrer directement par le client_project dans les messages d'historique
+            match_filter["client_project"] = project
+       
+        # Nombre total de recherches
+        total_searches = history_collection.count_documents(match_filter)
+       
+        # Recherches par jour (30 derniers jours)
+        thirty_days_ago = int((datetime.now() - timedelta(days=30)).timestamp() * 1000)
+        pipeline_dates = [
+            {"$match": {**match_filter, "timestamp": {"$gte": thirty_days_ago}}},
+            {"$project": {
+                "date": {"$dateToString": {"format": "%Y-%m-%d", "date": {"$toDate": "$timestamp"}}},
+            }},
+            {"$group": {"_id": "$date", "count": {"$sum": 1}}},
+            {"$sort": {"_id": 1}}
+        ]
+        searches_by_date = list(history_collection.aggregate(pipeline_dates))
+       
+        # Temps de réponse moyen (extraction à partir des résultats)
+        pipeline_response_time = [
+            {"$match": {**match_filter, "search_time": {"$exists": True}}},
+            {"$group": {"_id": None, "avg_time": {"$avg": "$search_time"}}}
+        ]
+        response_time_result = list(history_collection.aggregate(pipeline_response_time))
+        avg_response_time = response_time_result[0]["avg_time"] if response_time_result else None
+       
+        # Taux de similarité moyen
+        pipeline_similarity = [
+            {"$match": {**match_filter, "similarity_score": {"$exists": True}}},
+            {"$group": {"_id": None, "avg_similarity": {"$avg": "$similarity_score"}}}
+        ]
+        similarity_result = list(history_collection.aggregate(pipeline_similarity))
+        avg_similarity = similarity_result[0]["avg_similarity"] if similarity_result else None
+       
+        # Distribution des scores de similarité
+        pipeline_similarity_distribution = [
+            {"$match": {**match_filter, "similarity_score": {"$exists": True}}},
+            {"$bucket": {
+                "groupBy": "$similarity_score",
+                "boundaries": [50, 60, 70, 80, 90, 100],
+                "default": "Other",
+                "output": {
+                    "count": {"$sum": 1}
+                }
+            }}
+        ]
+        similarity_distribution = list(history_collection.aggregate(pipeline_similarity_distribution))
+       
+        # Top 5 des utilisateurs par nombre de recherches
+        pipeline_users = [
+            {"$match": match_filter},
+            {"$group": {"_id": "$userId", "count": {"$sum": 1}}},
+            {"$sort": {"count": -1}},
+            {"$limit": 5},
+            {"$lookup": {
+                "from": "Users",
+                "localField": "_id",
+                "foreignField": "_id",
+                "as": "user_info"
+            }},
+            {"$project": {
+                "username": {"$arrayElemAt": ["$user_info.username", 0]},
+                "count": 1
+            }}
+        ]
+        top_users = list(history_collection.aggregate(pipeline_users))
+       
+        # Volume de tickets traités par projet
+        pipeline_project_volume = [
+            {"$match": match_filter},
+            {"$group": {
+                "_id": "$client_project",
+                "count": {"$sum": 1}
+            }},
+            {"$match": {"_id": {"$ne": None}}},  # Exclure les documents sans client_project
+            {"$sort": {"count": -1}},
+            {"$limit": 10}
+        ]
+        project_volume = list(history_collection.aggregate(pipeline_project_volume, allowDiskUse=True))
+       
+        # Compter les recherches avec succès vs échec
+        success_searches = history_collection.count_documents({**match_filter, "result": {"$regex": "✅"}})
+        error_searches = history_collection.count_documents({**match_filter, "result": {"$regex": "❌"}})
+       
+        # Estimation du taux d'automatisation basée sur le score de similarité
+        # Les recherches avec un score > 70 sont considérées comme automatisables
+        automatable_searches = history_collection.count_documents({
+            **match_filter,
+            "similarity_score": {"$gte": 70}
+        })
+        automation_rate = (automatable_searches / total_searches * 100) if total_searches > 0 else 0
+        
+        # Récupérer la liste des projets distincts depuis les messages d'historique
+        all_projects_pipeline = [
+            {"$match": {"client_project": {"$exists": True, "$ne": None}}},
+            {"$group": {"_id": "$client_project"}},
+            {"$sort": {"_id": 1}}
+        ]
+        all_projects = list(history_collection.aggregate(all_projects_pipeline))
+        project_list = [project["_id"] for project in all_projects]
+       
+        client.close()
+       
+        return {
+            "status": "success",
+            "stats": {
+                "total_searches": total_searches,
+                "searches_by_date": searches_by_date,
+                "avg_response_time": avg_response_time,
+                "top_users": top_users,
+                "success_searches": success_searches,
+                "error_searches": error_searches,
+                "avg_similarity": avg_similarity,
+                "similarity_distribution": similarity_distribution,
+                "project_volume": project_volume,
+                "automation_rate": automation_rate,
+                "projects": project_list,
+            }
+        }
+    except Exception as e:
+        print(f"Erreur lors de la récupération des statistiques des recherches: {e}")
+        return {
+            "status": "error",
+            "message": f"Erreur lors de la récupération des statistiques: {str(e)}"
+        }
+@app.get("/admin/stats/system", response_model=dict)
+async def get_system_stats(current_user: dict = Depends(get_current_user)):
+    """Récupère les statistiques système pour le dashboard admin."""
+    # Vérifier que l'utilisateur est un admin
+    if not current_user.get("isAdmin", False):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Accès réservé aux administrateurs"
+        )
+    
+    try:
+        import psutil
+        import os
+        
+        # Utilisation CPU
+        cpu_percent = psutil.cpu_percent(interval=1)
+        
+        # Utilisation mémoire
+        memory = psutil.virtual_memory()
+        memory_usage = {
+            "total": memory.total,
+            "available": memory.available,
+            "percent": memory.percent,
+            "used": memory.used,
+            "free": memory.free
+        }
+        
+        # Utilisation disque
+        disk = psutil.disk_usage('/')
+        disk_usage = {
+            "total": disk.total,
+            "used": disk.used,
+            "free": disk.free,
+            "percent": disk.percent
+        }
+        
+        # Uptime du système
+        boot_time = datetime.fromtimestamp(psutil.boot_time())
+        uptime = datetime.now() - boot_time
+        uptime_hours = uptime.total_seconds() / 3600
+        
+        return {
+            "status": "success",
+            "stats": {
+                "cpu_percent": cpu_percent,
+                "memory_usage": memory_usage,
+                "disk_usage": disk_usage,
+                "uptime_hours": uptime_hours
+            }
+        }
+    
+    except Exception as e:
+        print(f"Erreur lors de la récupération des statistiques système: {e}")
+        return {
+            "status": "error",
+            "message": f"Erreur lors de la récupération des statistiques système: {str(e)}"
+        }
+
+@app.get("/admin/stats/users", response_model=dict)
+async def get_users_stats(current_user: dict = Depends(get_current_user)):
+    """Récupère les statistiques sur les utilisateurs pour le dashboard admin."""
+    # Vérifier que l'utilisateur est un admin
+    if not current_user.get("isAdmin", False):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Accès réservé aux administrateurs"
+        )
+    
+    try:
+        # Connexion à MongoDB
+        client = pymongo.MongoClient(MONGO_URI)
+        db_access = client["Access"]
+        users_collection = db_access["Users"]
+        
+        # Nombre total d'utilisateurs
+        total_users = users_collection.count_documents({})
+        
+        # Nombre d'administrateurs
+        admin_users = users_collection.count_documents({"isAdmin": True})
+        
+        # Utilisateurs par date d'inscription (regroupés par mois)
+        pipeline_dates = [
+            {"$project": {
+                "month": {"$dateToString": {"format": "%Y-%m", "date": "$createdAt"}},
+            }},
+            {"$group": {"_id": "$month", "count": {"$sum": 1}}},
+            {"$sort": {"_id": 1}}
+        ]
+        users_by_month = list(users_collection.aggregate(pipeline_dates))
+        
+        client.close()
+        
+        return {
+            "status": "success",
+            "stats": {
+                "total_users": total_users,
+                "admin_users": admin_users,
+                "regular_users": total_users - admin_users,
+                "users_by_month": users_by_month
+            }
+        }
+    
+    except Exception as e:
+        print(f"Erreur lors de la récupération des statistiques des utilisateurs: {e}")
+        return {
+            "status": "error",
+            "message": f"Erreur lors de la récupération des statistiques: {str(e)}"
+        }
+
+
+
+
 # Root endpoint for API health check 
 @app.get("/") 
 async def root(): 

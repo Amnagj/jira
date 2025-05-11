@@ -522,7 +522,7 @@ class RechercheTicketsEmbeddingsOptimized:
         else:
             return np.vstack(all_embeddings)
 
-    def rechercher_tickets_similaires(self, ticket_text):
+    def rechercher_tickets_similaires(self, ticket_text , additional_fields=None):
         """
         Recherche les tickets similaires en utilisant les embeddings
         """
@@ -598,24 +598,30 @@ class RechercheTicketsEmbeddingsOptimized:
                     "raffinement_ia": raffinement_details if self.use_ai_refinement else None,
                     "temps_recherche": search_time
                 }
+
                 self.resultats_collection.insert_one(resultats_document)
                 
                 logger.info(f"✅ {len(found_tickets)} tickets similaires trouvés")
                 for ticket in found_tickets[:3]:
                     logger.info(f" - ID: {ticket['ticket_id']}, Score: {ticket.get('similarity_score', 'N/A'):.2f}%")
                 
-                return {
-                    "status": "success",
-                    "message": f"✅ {len(found_tickets)} tickets similaires trouvés en {search_time:.4f} secondes.",
-                    "tickets": found_tickets,
-                    "temps_recherche": search_time,
-                    "query": query_metadata["problem"]
+                result = {
+                "status": "success",
+                "message": f"✅ {len(found_tickets)} tickets similaires trouvés en {search_time:.4f} secondes.",
+                "tickets": found_tickets,
+                "temps_recherche": search_time,
+                "query": query_metadata["problem"],
+                "additional_fields" : additional_fields
                 }
+
+                return result
+
             else:
                 return {
                     "status": "not_found",
                     "message": "❌ Aucun ticket suffisamment similaire trouvé.",
-                    "temps_recherche": search_time
+                    "temps_recherche": search_time,
+                    "additional_fields": additional_fields
                 }
         except Exception as e:
             logger.error(f"❌ Erreur lors de la recherche: {e}")
@@ -646,12 +652,20 @@ class RechercheTicketsEmbeddingsOptimized:
             total_search_time = 0
             for idx, row in df.iterrows():
                 print(f"\n🔍 Analyse du ticket #{idx+1}...")
-               
                 # Combiner toutes les colonnes non-nulles pour créer le texte du ticket
                 raw_ticket_text = " ".join(str(value) for value in row.values if pd.notna(value))
-               
-                # Rechercher des tickets similaires avec embeddings
-                resultat = self.rechercher_tickets_similaires(raw_ticket_text)
+                additional_fields = {}
+                if 'key' in row:
+                    additional_fields['key'] = row['key'] if pd.notna(row['key']) else None
+                if 'type' in row:
+                    additional_fields['type'] = row['type'] if pd.notna(row['type']) else None
+                if 'priority' in row:
+                    additional_fields['priority'] = row['priority'] if pd.notna(row['priority']) else None
+                if 'client_project' in row:
+                    additional_fields['client_project'] = row['client_project'] if pd.notna(row['client_project']) else None
+            
+
+                resultat = self.rechercher_tickets_similaires(raw_ticket_text,  additional_fields)
                 resultats.append(resultat)
                
                 if "temps_recherche" in resultat:
@@ -666,8 +680,8 @@ class RechercheTicketsEmbeddingsOptimized:
             taux_succes = (succes / len(resultats)) * 100 if resultats else 0
             print(f"📊 Taux de succès: {taux_succes:.1f}% ({succes}/{len(resultats)})")
            
-            # Sauvegarder les résultats dans un fichier CSV
-            self.sauvegarder_resultats_csv(resultats)
+
+
            
             return resultats
         except Exception as e:

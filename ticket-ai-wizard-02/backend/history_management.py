@@ -40,10 +40,10 @@ def connect_to_mongodb():
         logger.error(f"Erreur de connexion à MongoDB: {e}")
         # Ne pas lever d'exception, mais retourner None
         return None, None
-def add_history_item(user_id, query_text, result, ticket_ids=None, similarity_score=None, search_time=None):
+def add_history_item(user_id, query_text, result, ticket_ids=None, similarity_score=None, search_time=None ,key=None, type=None, priority=None, client_project=None ):
     try:
         client, collection = connect_to_mongodb()
-        db = client["jira"]
+        db = client["Access"]
         history_collection = db["Historique_Messages"]
         # Vérifier si la connexion a réussi
         if client is None or collection is None:
@@ -55,10 +55,8 @@ def add_history_item(user_id, query_text, result, ticket_ids=None, similarity_sc
        
         # S'assurer que user_id est une chaîne
         user_id = str(user_id)
-       
         logger.info(f"Ajout à l'historique pour l'utilisateur {user_id}, query: {query_text[:50]}...")
-       
-        # Convertir les ObjectId en str pour tous les ticket_ids s'ils existent
+        
         if ticket_ids:
             # Vérifier si c'est une liste de ObjectId et convertir si nécessaire
             processed_ticket_ids = []
@@ -68,10 +66,6 @@ def add_history_item(user_id, query_text, result, ticket_ids=None, similarity_sc
                 else:
                     processed_ticket_ids.append(tid)
             ticket_ids = processed_ticket_ids
-       
-        # S'assurer que le résultat est correctement sérialisable
-        if isinstance(result, dict) and "_id" in result and isinstance(result["_id"], ObjectId):
-            result["_id"] = str(result["_id"])
        
         # Créer l'élément d'historique avec les nouveaux champs
         history_item = {
@@ -83,9 +77,12 @@ def add_history_item(user_id, query_text, result, ticket_ids=None, similarity_sc
             "timestamp": int(datetime.datetime.now().timestamp() * 1000),
             "visible": True,
             "similarity_score": similarity_score,  # Nouveau champ pour le taux de similarité
-            "search_time": search_time  # Nouveau champ pour le temps de recherche
+            "search_time": search_time,  # Nouveau champ pour le temps de recherche
+            "key": key,
+            "type": type,
+            "priority": priority,
+            "client_project": client_project
         }
-       
         three_mins_ago = int((datetime.datetime.now() - datetime.timedelta(minutes=3)).timestamp() * 1000)
         existing = collection.find_one({
             "userId": user_id,

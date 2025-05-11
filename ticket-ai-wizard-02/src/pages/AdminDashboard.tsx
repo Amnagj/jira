@@ -1,22 +1,89 @@
 import { useState, useEffect } from "react";
 import { Navbar } from "@/components/Navbar";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "@/hooks/useTheme";
 import { cn } from "@/lib/utils";
 import StarfieldBackground from "@/components/StarfieldBackground";
 import { CosmicElements, GlowingOrb } from "@/components/CosmicElements";
-
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { TicketsStats, SearchesStats, SystemStats, UsersStats, getAllStats, getSearchesStats } from "@/api/dashboardService";
+import TicketsOverview from "@/components/dashboard/TicketsOverview";
+import SearchesOverview from "@/components/dashboard/SearchesOverview";
+import SystemOverview from "@/components/dashboard/SystemOverview";
+import UsersOverview from "@/components/dashboard/UsersOverview";
 
 const AdminDashboard = () => {
   const { theme } = useTheme();
+
   const isDark = theme === "dark";
   const navigate = useNavigate();
-  const [iframeLoaded, setIframeLoaded] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [ticketsStats, setTicketsStats] = useState<TicketsStats | null>(null);
+  const [searchesStats, setSearchesStats] = useState<SearchesStats | null>(null);
+  const [systemStats, setSystemStats] = useState<SystemStats | null>(null);
+  const [usersStats, setUsersStats] = useState<UsersStats | null>(null);
+  const [activeTab, setActiveTab] = useState("tickets");
 
+  // Fonction pour gérer le changement d'onglet
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+  };
 
-  const powerBIEmbedUrl = "https://app.powerbi.com/view?r=eyJrIjoiNmQ1YWY5NjQtNGZiOS00MjNlLTkwOGUtYzRlNWQ0MTNmYTUzIiwidCI6ImRiZDY2NjRkLTRlYjktNDZlYi05OWQ4LTVjNDNiYTE1M2M2MSIsImMiOjl9";
+  // Récupération des données au chargement du composant
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const allStats = await getAllStats();
+        
+        if (allStats.tickets.status === 'success' && allStats.tickets.stats) {
+          setTicketsStats(allStats.tickets.stats);
+        }
+        
+        if (allStats.searches.status === 'success' && allStats.searches.stats) {
+          setSearchesStats(allStats.searches.stats);
+        }
+        
+        if (allStats.system.status === 'success' && allStats.system.stats) {
+          setSystemStats(allStats.system.stats);
+        }
+        
+        if (allStats.users.status === 'success' && allStats.users.stats) {
+          setUsersStats(allStats.users.stats);
+        }
+        
+        // Vérifier s'il y a des erreurs
+        const errors = [];
+        if (allStats.tickets.status === 'error') errors.push(allStats.tickets.message);
+        if (allStats.searches.status === 'error') errors.push(allStats.searches.message);
+        if (allStats.system.status === 'error') errors.push(allStats.system.message);
+        if (allStats.users.status === 'error') errors.push(allStats.users.message);
+        
+        if (errors.length > 0) {
+          setError(errors.join(', '));
+        } else {
+          setError(null);
+        }
+      } catch (err) {
+        console.error("Erreur lors de la récupération des données", err);
+        setError("Une erreur est survenue lors de la récupération des données.");
+      } finally {
+        setLoading(false);
+      }
+    };
 
+    fetchData();
+    
+    // Mettre à jour les données toutes les 30 secondes
+    const interval = setInterval(fetchData, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  
 
   return (
     <div className={cn(
@@ -27,49 +94,122 @@ const AdminDashboard = () => {
       {isDark && <CosmicElements />}
       <Navbar />
       <div className="h-6" />
-     
       <main className="container mx-auto pt-14 pb-5 px-4 relative z-10">
-        <div className="max-w-6xl mx-auto">
-         
-         
-          <Card className={cn(
-            "mb-3 p-2 relative overflow-hidden",
-            isDark ? "bg-card/70 border-white/10" : "bg-white border-gray-200"
+        <div className="max-w-7xl mx-auto">
+          <h1 className={cn(
+            "text-3xl font-bold mb-6",
+            isDark ? "text-white" : "text-gray-900"
           )}>
-            {!iframeLoaded && (
-              <div className="absolute inset-0 flex items-center justify-center bg-background/50 backdrop-blur-sm">
-                <div className="flex flex-col items-center">
-                  <div className="w-12 h-12 border-4 border-t-blue-500 border-r-transparent border-b-blue-500 border-l-transparent rounded-full animate-spin mb-4"></div>
-                  <p className={isDark ? "text-blue-200" : "text-blue-700"}>Chargement du dashboard...</p>
+            Tableau de bord administrateur
+          </h1>
+          
+          {error && (
+            <Alert variant="destructive" className="mb-6">
+              <AlertTitle>Erreur</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+          
+          <Tabs defaultValue="tickets" className="w-full" onValueChange={handleTabChange}>
+            <TabsList className="grid grid-cols-4 mb-6">
+              <TabsTrigger value="tickets">Tickets</TabsTrigger>
+              <TabsTrigger value="searches">Recherches</TabsTrigger>
+              <TabsTrigger value="system">Système</TabsTrigger>
+              <TabsTrigger value="users">Utilisateurs</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="tickets" className="space-y-4">
+              {loading ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {[...Array(6)].map((_, index) => (
+                    <Card key={index} className={cn(
+                      isDark ? "bg-card/70 border-white/10" : "bg-white"
+                    )}>
+                      <CardHeader className="p-4">
+                        <Skeleton className="h-6 w-1/2 mb-2" />
+                        <Skeleton className="h-4 w-3/4" />
+                      </CardHeader>
+                      <CardContent>
+                        <Skeleton className="h-[200px] w-full" />
+                      </CardContent>
+                    </Card>
+                  ))}
                 </div>
-              </div>
-            )}
-           
-            <div className={cn(
-              "w-full h-[calc(100vh-150px)]  rounded-lg overflow-hidden", // Hauteur augmentée et marge supérieure ajoutée
-              !iframeLoaded ? "opacity-30" : ""
-            )}>
-              <iframe
-                title="PowerBI Dashboard"
-                width="100%"
-                height="100%"
-                src={powerBIEmbedUrl}
-                frameBorder="0"
-                allowFullScreen={true}
-                onLoad={() => setIframeLoaded(true)}
-              ></iframe>
-            </div>
-          </Card>
-         
-          <p className={cn(
-            "text-sm text-center",
-            isDark ? "text-blue-200/60" : "text-blue-700/60"
-          )}>
-            Dashboard alimenté par PowerBI. Les données sont mises à jour automatiquement.
-          </p>
+              ) : (
+                <TicketsOverview stats={ticketsStats} isDark={isDark} />
+              )}
+            </TabsContent>
+            
+            <TabsContent value="searches" className="space-y-4">
+              {loading ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {[...Array(6)].map((_, index) => (
+                    <Card key={index} className={cn(
+                      isDark ? "bg-card/70 border-white/10" : "bg-white"
+                    )}>
+                      <CardHeader className="p-4">
+                        <Skeleton className="h-6 w-1/2 mb-2" />
+                        <Skeleton className="h-4 w-3/4" />
+                      </CardHeader>
+                      <CardContent>
+                        <Skeleton className="h-[200px] w-full" />
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <SearchesOverview stats={searchesStats} isDark={isDark} />
+              )}
+            </TabsContent>
+            
+            
+            
+            <TabsContent value="system" className="space-y-4">
+              {loading ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {[...Array(3)].map((_, index) => (
+                    <Card key={index} className={cn(
+                      isDark ? "bg-card/70 border-white/10" : "bg-white"
+                    )}>
+                      <CardHeader className="p-4">
+                        <Skeleton className="h-6 w-1/2 mb-2" />
+                        <Skeleton className="h-4 w-3/4" />
+                      </CardHeader>
+                      <CardContent>
+                        <Skeleton className="h-[200px] w-full" />
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <SystemOverview stats={systemStats} isDark={isDark} />
+              )}
+            </TabsContent>
+            
+            <TabsContent value="users" className="space-y-4">
+              {loading ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {[...Array(4)].map((_, index) => (
+                    <Card key={index} className={cn(
+                      isDark ? "bg-card/70 border-white/10" : "bg-white"
+                    )}>
+                      <CardHeader className="p-4">
+                        <Skeleton className="h-6 w-1/2 mb-2" />
+                        <Skeleton className="h-4 w-3/4" />
+                      </CardHeader>
+                      <CardContent>
+                        <Skeleton className="h-[200px] w-full" />
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <UsersOverview stats={usersStats} isDark={isDark} />
+              )}
+            </TabsContent>
+          </Tabs>
         </div>
       </main>
-     
       {isDark && (
         <>
           <GlowingOrb className="fixed top-1/4 left-1/5 -z-10" size={250} color="rgba(79, 70, 229, 0.08)" />
@@ -80,8 +220,4 @@ const AdminDashboard = () => {
   );
 };
 
-
 export default AdminDashboard;
-
-
-
