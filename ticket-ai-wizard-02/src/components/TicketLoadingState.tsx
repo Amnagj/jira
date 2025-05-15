@@ -171,10 +171,10 @@ export const TicketLoadingState = () => {
       transition={{ duration: 0.5 }}
       className={cn(
         "bg-gradient-to-r p-6 max-w-4xl mx-auto rounded-2xl",
-        isDark ? "from-slate-900 to-blue-900/40" : "from-slate-50 to-blue-50"
+        isDark ? "from-gray-800 to-gray-700" : "from-slate-50 to-blue-50"
       )}
     >
-      <div className="flex flex-col items-center w-full max-w-lg mx-auto">
+      <div className="flex flex-col items-center w-full max-w-4l mx-auto">
         {/* Animated loader with creative design */}
         <div className="relative mb-8 mt-2">
           <motion.div
@@ -204,11 +204,11 @@ export const TicketLoadingState = () => {
                 : "bg-gradient-to-r from-blue-500 to-indigo-500 shadow-lg shadow-blue-500/20"
             )}
           >
-            <div className="w-12 h-12 rounded-full flex items-center justify-center bg-gradient-to-b from-transparent to-black/20">
+            <div className="w-12 h-12 rounded-full flex items-center justify-center bg-gradient-to-b from-transparent to-blue/20">
             <motion.div
               animate={{ rotate: 360 }}
               transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }}
-              className="w-12 h-12 rounded-full flex items-center justify-center bg-gradient-to-b from-transparent to-black/20"
+              className="w-12 h-12 rounded-full flex items-center justify-center bg-gradient-to-b from-transparent to-blue/20"
             >
               <Search className="w-7 h-7 text-white" />
             </motion.div>

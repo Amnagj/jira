@@ -1,5 +1,15 @@
 import { useState, useEffect } from "react";
-import { Loader2, ChevronDown, ChevronUp, BookOpen, CheckCircle2, AlertTriangle, Search, Clock, ArrowUpRight } from "lucide-react";
+import {
+  Loader2,
+  ChevronDown,
+  ChevronUp,
+  BookOpen,
+  CheckCircle2,
+  AlertTriangle,
+  Search,
+  Clock,
+  ArrowUpRight,
+} from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTheme } from "@/hooks/useTheme";
 import { cn } from "@/lib/utils";
@@ -19,48 +29,63 @@ interface SimilarityResultsProps {
   searchTime?: number;
 }
 
-export const SimilarityResults = ({ tickets, loading, searchTime }: SimilarityResultsProps) => {
+export const SimilarityResults = ({
+  tickets,
+  loading,
+  searchTime,
+
+}: SimilarityResultsProps) => {
   const { theme } = useTheme();
   const isDark = theme === "dark";
   const [expandedTicket, setExpandedTicket] = useState<string | null>(null);
   const [sortedTickets, setSortedTickets] = useState<SimilarTicket[]>([]);
-  const [selectedKeyword, setSelectedKeyword] = useState<string | null>(null);
-  const [allKeywords, setAllKeywords] = useState<string[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const ticketsPerPage = 5;
 
-  // Sort tickets by similarity score and extract all unique keywords
   useEffect(() => {
     if (tickets && tickets.length > 0) {
-      // Sort tickets by similarity score (highest first)
-      const sorted = [...tickets].sort((a, b) => b.similarity_score - a.similarity_score);
+      const sorted = [...tickets].sort(
+        (a, b) => b.similarity_score - a.similarity_score
+      );
       setSortedTickets(sorted);
-      
-      // Extract all unique keywords
-      const keywordSet = new Set<string>();
-      sorted.forEach(ticket => {
-        ticket.keywords.split(',').forEach(keyword => {
-          keywordSet.add(keyword.trim());
-        });
-      });
-      setAllKeywords(Array.from(keywordSet).slice(0, 10)); // Limit to top 10 keywords
     } else {
       setSortedTickets([]);
+      setExpandedTicket(null);
     }
   }, [tickets]);
 
-  // Filter tickets by selected keyword
-  const filteredTickets = selectedKeyword
-    ? sortedTickets.filter(ticket => ticket.keywords.includes(selectedKeyword))
-    : sortedTickets;
-
-  // Expand the first ticket by default
+  const filteredTickets = sortedTickets;
   useEffect(() => {
-    if (sortedTickets.length > 0 && !expandedTicket) {
-      setExpandedTicket(sortedTickets[0].ticket_id);
-    }
-  }, [sortedTickets, expandedTicket]);
+      if (sortedTickets.length > 0 && !expandedTicket) {
+        setExpandedTicket(sortedTickets[0].ticket_id);
+      }
+    }, [sortedTickets, expandedTicket]);
+
 
   const toggleExpand = (ticketId: string) => {
     setExpandedTicket(expandedTicket === ticketId ? null : ticketId);
+  };
+  const getScoreColor = (score: number, isHighest: boolean): string => { 
+    if (isHighest) {
+      return isDark
+        ? "bg-green-900/30 text-green-300"
+        : "bg-green-100 text-green-800";
+    }
+
+    // Different colors for other scores based on value
+    if (score >= 80) {
+      return isDark
+        ? "bg-blue-900/30 text-blue-300"
+        : "bg-blue-100 text-blue-800";
+    } else if (score >= 60) {
+      return isDark
+        ? "bg-amber-900/30 text-amber-300"
+        : "bg-amber-100 text-amber-800";
+    } else {
+      return isDark
+        ? "bg-slate-900/30 text-slate-300"
+        : "bg-slate-100 text-slate-800";
+    }
   };
 
   // Check if any tickets found
@@ -68,36 +93,44 @@ export const SimilarityResults = ({ tickets, loading, searchTime }: SimilarityRe
     return null;
   }
 
+  // Get highest score for coloring
+  const highestScore =
+    sortedTickets.length > 0 ? sortedTickets[0].similarity_score : 0;
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
       className={cn(
-        "rounded-xl border transition-all duration-300 overflow-hidden mb-4",
-        isDark ? "bg-slate-800/95 border-slate-700" : "bg-white border-gray-200"
+        "rounded-xl border transition-all duration-300 overflow-hidden mb-3", // Reduced margin
+        isDark ? "bg-[#0e1e34]/95 border-[#1a2a4d]" : "bg-white border-gray-200"
       )}
     >
-      {/* Header Section - modernisé et avec taille augmentée */}
-      <div className="p-4 border-b border-slate-200 dark:border-slate-700">
+      {/* Header Section - Reduced size */}
+      <div className="p-3 border-b border-slate-200 dark:border-slate-700">
         <div className="flex items-center justify-between">
-          <h3 className={cn(
-            "font-medium flex items-center gap-2 text-lg", // Taille augmentée ici
-            isDark ? "text-blue-300" : "text-blue-700"
-          )}>
+          <h3
+            className={cn(
+              "font-medium flex items-center gap-1 text-base", // Smaller text
+              isDark ? "text-blue-300" : "text-blue-700"
+            )}
+          >
             {loading ? (
               <>
-                <Loader2 size={18} className="animate-spin" /> {/* Taille augmentée */}
+                <Loader2 size={16} className="animate-spin" />{" "}
+                {/* Smaller icon */}
                 <span>Recherche en cours...</span>
               </>
             ) : (
               <>
-                <Search size={18} className="text-green-500" /> {/* Taille augmentée */}
+                <Search size={16} className="text-green-500" />{" "}
+                {/* Smaller icon */}
                 <span className="flex items-center gap-1">
                   <span>
                     {filteredTickets.length > 0
-                      ? `Tickets similaires`  // Texte modifié sans afficher le nombre
-                      : "Résultats de recherche"}
+                      ? `Tickets similaires` // Shortened text
+                      : "Résultats"}
                   </span>
                 </span>
               </>
@@ -110,206 +143,171 @@ export const SimilarityResults = ({ tickets, loading, searchTime }: SimilarityRe
             </div>
           )}
         </div>
-        
-        {/* Keywords filter - style amélioré */}
-        {!loading && allKeywords.length > 0 && (
-          <div className="mt-3 pt-2">
-            <div className="flex flex-wrap gap-2">
-              {selectedKeyword && (
-                <button
-                  onClick={() => setSelectedKeyword(null)}
-                  className={cn(
-                    "px-3 py-1 rounded-full text-xs flex items-center transition-all",
-                    isDark ? "bg-slate-700 text-slate-300 hover:bg-slate-600" : "bg-slate-200 text-slate-700 hover:bg-slate-300"
-                  )}
-                >
-                  <span>Tous</span>
-                </button>
-              )}
-              {allKeywords.map((keyword) => (
-                <button
-                  key={keyword}
-                  onClick={() => setSelectedKeyword(keyword === selectedKeyword ? null : keyword)}
-                  className={cn(
-                    "px-3 py-1 rounded-full text-xs transition-all",
-                    keyword === selectedKeyword
-                      ? isDark
-                        ? "bg-blue-600 text-white shadow-md shadow-blue-500/20"
-                        : "bg-blue-500 text-white shadow-sm"
-                      : isDark
-                        ? "bg-slate-700 text-slate-300 hover:bg-slate-600"
-                        : "bg-slate-200 text-slate-700 hover:bg-slate-300"
-                  )}
-                >
-                  {keyword}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Loading State */}
       {loading ? (
-        <div className="flex justify-center items-center p-12">
-          
+        <div className="flex justify-center items-center p-8">
+          {" "}
+          {/* Reduced padding */}
         </div>
       ) : (
-        <div className={cn(
-          "divide-y divide-slate-200 dark:divide-slate-700",
-          isDark ? "bg-slate-900/30" : "bg-white"
-        )}>
+        <div className={cn("", isDark ? "bg-[#0a1a2e]/30" : "bg-white")}>
           {/* Results list */}
-          {filteredTickets.length > 0 ? (
-            filteredTickets.map((ticket, index) => (
-              <div
-                key={ticket.ticket_id}
-                className={cn(
-                  "transition-colors duration-200",
-                  expandedTicket === ticket.ticket_id
-                    ? isDark ? "bg-slate-800" : "bg-slate-50"
-                    : "",
-                  isDark ? "hover:bg-slate-700/50" : "hover:bg-slate-50/80"
-                )}
-              >
-                <div
-                  className="p-4 cursor-pointer relative"
+          <div className={cn("", isDark ? "bg-[#0a1a2e]/30" : "bg-white")}>
+            {/* Tickets navigation bar - Smaller */}
+            <div
+              className={cn(
+                "p-2 border-b overflow-x-auto flex space-x-1.5 no-scrollbar", // Reduced padding and spacing
+                isDark
+                  ? "border-[#1a2a4d] bg-[#0e1e34]/70"
+                  : "border-slate-200 bg-blue-50/50"
+              )}
+            >
+              {filteredTickets.map((ticket, index) => (
+                <button
+                  key={ticket.ticket_id}
                   onClick={() => toggleExpand(ticket.ticket_id)}
+                  className={cn(
+                    "px-2 py-1.5 rounded-lg text-xs whitespace-nowrap flex items-center gap-1.5 transition-all", // Smaller sizes
+                    expandedTicket === ticket.ticket_id
+                      ? isDark
+                        ? "bg-blue-700 text-white shadow-md shadow-blue-900/20"
+                        : "bg-blue-500 text-white shadow-sm"
+                      : isDark
+                      ? "bg-[#1a2a4d] text-blue-100 hover:bg-[#203251]"
+                      : "bg-blue-100 text-blue-700 hover:bg-blue-200"
+                  )}
                 >
-                  <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-3">
-                      {/* Similarity score indicator - corrigé */}
-                      <div className="relative flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center overflow-hidden shadow-inner">
-                        <div className="absolute inset-0 bg-slate-100 dark:bg-slate-700/50"></div>
-                        <div className="absolute inset-0">
-                          <CircularProgress
-                            percentage={Math.round(ticket.similarity_score )}
-                            color={getSimilarityColor(ticket.similarity_score, isDark)}
-                          />
-                        </div>
-                        <span className="relative z-10 font-medium text-sm">
-                          {Math.round(ticket.similarity_score )}% {/* Correction pour afficher correctement le pourcentage */}
-                        </span>
-                      </div>
+                  {/* Ticket ID - Smaller */}
+                  <span className="font-mono text-xs">{ticket.ticket_id}</span>
 
-                      {/* Ticket information */}
-                      <div className="flex-grow">
-                        <h4 className={cn(
-                          "font-medium flex items-center flex-wrap gap-1",
-                          isDark ? "text-white" : "text-slate-800"
-                        )}>
-                          <span className="font-mono">{ticket.ticket_id}</span>
-                          {index === 0 &&
-                            <span className="bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded-full dark:bg-green-800/30 dark:text-green-400 font-medium flex items-center gap-1">
-                              <CheckCircle2 size={10} />
-                              <span>Best match</span>
-                            </span>
-                          }
-                        </h4>
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          {ticket.keywords.split(',').slice(0, 3).map((keyword, i) => (
-                            <span key={i} className={cn(
-                              "text-xs px-2 py-0.5 rounded-full",
-                              keyword.trim() === selectedKeyword
-                                ? isDark ? "bg-blue-600/30 text-blue-300"
-                                : "bg-blue-100 text-blue-800"
-                                : isDark ? "bg-slate-700 text-slate-300"
-                                : "bg-slate-100 text-slate-600"
-                            )}>
-                              {keyword.trim()}
-                            </span>
-                          ))}
-                          {ticket.keywords.split(',').length > 3 && (
-                            <span className="text-xs text-slate-400 px-1">
-                              +{ticket.keywords.split(',').length - 3}
-                            </span>
+                  {/* Score badge - Colored based on score and if it's the best match */}
+                  <span
+                    className={cn(
+                      "text-xs px-1.5 py-0.5 rounded-full",
+                      getScoreColor(
+                        ticket.similarity_score,
+                        ticket.similarity_score === highestScore
+                      )
+                    )}
+                  >
+                    {Math.round(ticket.similarity_score)}%
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            {/* Selected ticket display */}
+            <AnimatePresence>
+              {expandedTicket &&
+                filteredTickets.find((t) => t.ticket_id === expandedTicket) && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    {/* Selected ticket content */}
+                    {(() => {
+                      const ticket = filteredTickets.find(
+                        (t) => t.ticket_id === expandedTicket
+                      )!;
+                      return (
+                        <div
+                          className={cn(
+                            "p-4 space-y-3", // Reduced padding and spacing
+                            isDark
+                              ? "bg-[#0e1e34]/50"
+                              : "bg-gradient-to-r from-blue-50 to-blue-100/30"
                           )}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center">
-                      {expandedTicket === ticket.ticket_id ? (
-                        <ChevronUp size={20} className={isDark ? "text-blue-400" : "text-blue-600"} />
-                      ) : (
-                        <ChevronDown size={20} className="text-slate-400" />
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Expanded content */}
-                <AnimatePresence>
-                  {expandedTicket === ticket.ticket_id && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: "auto", opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.3 }}
-                      className="overflow-hidden"
-                    >
-                      <div className={cn(
-                        "p-6 pt-0 ml-4 pl-12 space-y-4 border-l-2",
-                        isDark
-                          ? "bg-slate-800/50 border-l-slate-600"
-                          : "bg-slate-50/60 border-l-slate-200"
-                      )}>
-                        {/* Problem section */}
-                        <div>
-                          <h5 className={cn(
-                            "text-sm font-medium mb-2 flex items-center gap-1",
-                            isDark ? "text-blue-300" : "text-blue-700"
-                          )}>
-                            <AlertTriangle size={14} className={isDark ? "text-amber-400" : "text-amber-500"} />
-                            Problème identifié
-                          </h5>
-                          <p className={cn(
-                            "text-sm whitespace-pre-wrap p-3 rounded-md",
-                            isDark ? "bg-slate-700/50 text-slate-200" : "bg-slate-100 text-slate-700"
-                          )}>
-                            {ticket.problem || "Aucun problème spécifique documenté."}
-                          </p>
-                        </div>
-
-                        {/* Solution section */}
-                        <div>
-                          <h5 className={cn(
-                            "text-sm font-medium mb-2 flex items-center gap-1",
-                            isDark ? "text-green-300" : "text-green-700"
-                          )}>
-                            <CheckCircle2 size={14} className={isDark ? "text-green-400" : "text-green-500"} />
-                            Solution proposée
-                          </h5>
-                          <p className={cn(
-                            "text-sm whitespace-pre-wrap p-3 rounded-md",
-                            isDark ? "bg-slate-700/50 text-slate-200" : "bg-slate-100 text-slate-700"
-                          )}>
-                            {ticket.solution || "Aucune solution spécifique documentée."}
-                          </p>
-                        </div>
-
-                        {/* Keywords section */}
-                        {ticket.keywords && (
+                        >
+                          {/* Problem section */}
                           <div>
-                            <h5 className={cn(
-                              "text-sm font-medium mb-2 flex items-center gap-1",
-                              isDark ? "text-purple-300" : "text-purple-700"
-                            )}>
-                              <BookOpen size={14} className={isDark ? "text-purple-400" : "text-purple-500"} />
+                            <h5
+                              className={cn(
+                                "text-xs font-medium mb-1.5 flex items-center gap-1", // Smaller text
+                                isDark ? "text-blue-300" : "text-blue-700"
+                              )}
+                            >
+                              <AlertTriangle
+                                size={12}
+                                className={
+                                  isDark ? "text-blue-400" : "text-blue-500"
+                                }
+                              />
+                              Problème identifié
+                            </h5>
+                            <p
+                              className={cn(
+                                "text-xs whitespace-pre-wrap p-2.5 rounded-md", // Smaller text and padding
+                                isDark
+                                  ? "bg-slate-700/50 text-slate-200"
+                                  : "bg-blue-100/70 text-blue-900"
+                              )}
+                            >
+                              {ticket.problem ||
+                                "Aucun problème spécifique documenté."}
+                            </p>
+                          </div>
+
+                          {/* Solution section */}
+                          <div>
+                            <h5
+                              className={cn(
+                                "text-xs font-medium mb-1.5 flex items-center gap-1", // Smaller text
+                                isDark ? "text-blue-300" : "text-blue-700"
+                              )}
+                            >
+                              <CheckCircle2
+                                size={12}
+                                className={
+                                  isDark ? "text-blue-400" : "text-blue-500"
+                                }
+                              />
+                              Solution proposée
+                            </h5>
+                            <p
+                              className={cn(
+                                "text-xs whitespace-pre-wrap p-2.5 rounded-md", // Smaller text and padding
+                                isDark
+                                  ? "bg-slate-700/50 text-slate-200"
+                                  : "bg-blue-100/70 text-blue-900"
+                              )}
+                            >
+                              {ticket.solution ||
+                                "Aucune solution spécifique documentée."}
+                              
+                            </p>
+                          </div>
+
+                          {/* Keywords section */}
+                          <div>
+                            <h5
+                              className={cn(
+                                "text-xs font-medium mb-1.5 flex items-center gap-1", // Smaller text
+                                isDark ? "text-blue-300" : "text-blue-700"
+                              )}
+                            >
+                              <BookOpen
+                                size={12}
+                                className={
+                                  isDark ? "text-blue-400" : "text-blue-500"
+                                }
+                              />
                               Mots-clés
                             </h5>
-                            <div className="flex flex-wrap gap-2">
-                              {ticket.keywords.split(',').map((keyword, i) => (
+                            <div className="flex flex-wrap gap-1.5">
+                              {" "}
+                              {/* Reduced gap */}
+                              {ticket.keywords.split(",").map((keyword, i) => (
                                 <span
                                   key={i}
                                   className={cn(
-                                    "px-2 py-1 rounded-full text-xs transition-colors",
-                                    keyword.trim() === selectedKeyword
-                                      ? isDark
-                                        ? "bg-blue-600/50 text-blue-200"
-                                        : "bg-blue-200 text-blue-800"
-                                      : isDark
-                                        ? "bg-slate-700 text-slate-300"
-                                        : "bg-slate-200 text-slate-700"
+                                    "px-1.5 py-0.5 rounded-full text-xs transition-colors", // Smaller padding
+                                    isDark
+                                      ? "bg-blue-800/50 text-blue-200"
+                                      : "bg-blue-200 text-blue-800"
                                   )}
                                 >
                                   {keyword.trim()}
@@ -317,72 +315,15 @@ export const SimilarityResults = ({ tickets, loading, searchTime }: SimilarityRe
                               ))}
                             </div>
                           </div>
-                        )}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            ))
-          ) : (
-            <div className="p-8 flex flex-col items-center justify-center text-center">
-              <AlertTriangle size={32} className={isDark ? "text-amber-400" : "text-amber-500"} />
-              <h4 className="text-lg font-medium mb-2">Aucun ticket similaire</h4>
-              <p className="text-sm opacity-70">
-                Nous n'avons pas trouvé de tickets similaires dans notre base de connaissances.
-              </p>
-            </div>
-          )}
+                        </div>
+                      );
+                    })()}
+                  </motion.div>
+                )}
+            </AnimatePresence>
+          </div>
         </div>
       )}
     </motion.div>
   );
 };
-
-// Circular progress component for similarity score - corrigé pour afficher correctement le pourcentage
-const CircularProgress = ({ percentage, color }: { percentage: number, color: string }) => {
-  const circumference = 2 * Math.PI * 18; // 18 is the radius
-  const strokeDashoffset = circumference - (percentage / 100) * circumference;
-  
-  return (
-    <svg className="w-full h-full" viewBox="0 0 40 40">
-      {/* Background circle */}
-      <circle
-        className="text-slate-200 dark:text-slate-700"
-        strokeWidth="4"
-        stroke="currentColor"
-        fill="transparent"
-        r="18"
-        cx="20"
-        cy="20"
-      />
-      {/* Progress circle */}
-      <circle
-        className="transition-all duration-300 ease-in-out"
-        strokeWidth="4"
-        strokeDasharray={circumference}
-        strokeDashoffset={strokeDashoffset}
-        strokeLinecap="round"
-        stroke={color}
-        fill="transparent"
-        r="18"
-        cx="20"
-        cy="20"
-        transform="rotate(-90 20 20)"
-      />
-    </svg>
-  );
-};
-
-// Fonction pour déterminer la couleur du badge en fonction du score de similarité
-function getSimilarityColor(score: number, isDark: boolean): string {
-  if (score >= 0.8) {
-    return isDark ? "#10b981" : "#10b981"; // vert/green
-  } else if (score >= 0.6) {
-    return isDark ? "#3b82f6" : "#3b82f6"; // bleu/blue
-  } else if (score >= 0.4) {
-    return isDark ? "#f59e0b" : "#f59e0b"; // ambre/amber
-  } else {
-    return isDark ? "#6b7280" : "#6b7280"; // gris/gray
-  }
-}

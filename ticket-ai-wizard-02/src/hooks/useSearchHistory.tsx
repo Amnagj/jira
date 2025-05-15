@@ -14,6 +14,8 @@ interface SearchHistoryItem {
   result: string;
   ticketIds?: string[];
   visible: boolean;
+  similarity_score?: number | null; // Ajoutez cette ligne si elle n'existe pas
+
 }
 
 

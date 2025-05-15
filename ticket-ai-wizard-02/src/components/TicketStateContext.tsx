@@ -1,4 +1,3 @@
-// src/components/TicketStateContext.tsx
 import React, {
   createContext,
   useContext,
@@ -44,7 +43,6 @@ interface TicketStateContextProps {
   setInitialMessage: (message: string | undefined) => void;
   setTicketIds: (ids: string[] | undefined) => void;
   clearTicketState: () => void;
-  // Méthodes pour gérer l'état du traitement
   setProcessingState: (state: Partial<TicketState["processingState"]>) => void;
   setProcessingStatus: (status: string) => void; // Mise à jour du statut
   setProcessStep: (step: string) => void; // Nouvelle méthode pour mettre à jour l'étape
@@ -54,9 +52,7 @@ interface TicketStateContextProps {
   cancelProcessing: () => void;
   setProgress: (progress: number) => void;
   continueProcessingIfNeeded: () => void;
-  // Getter pour obtenir le pourcentage de progression réel
   getRealProgressPercentage: () => number;
-  // Nouveau getter pour obtenir le message de status descriptif
   getProcessStatusMessage: () => string;
 }
 
@@ -350,7 +346,7 @@ export const TicketStateProvider: React.FC<{ children: ReactNode }> = ({
   const setTicketIds = (ids: string[] | undefined) => {
     setTicketState((prev) => ({ ...prev, ticketIds: ids }));
   };
-
+  
   const setProcessingState = (
     state: Partial<TicketState["processingState"]>
   ) => {
@@ -741,6 +737,7 @@ export const TicketStateProvider: React.FC<{ children: ReactNode }> = ({
               if (response.tickets && response.tickets.length > 0) {
                 const ticketIds = response.tickets.map((t: any) => t.ticket_id);
                 const bestMatch = response.tickets[0];
+                console.log("Setting search time to:", response.temps_recherche);
                 const responseMessage = `
                   J'ai trouvé une solution pour votre ticket!
                   **Problème identifié:** ${bestMatch.problem}
@@ -761,7 +758,6 @@ export const TicketStateProvider: React.FC<{ children: ReactNode }> = ({
             }
           })
           .catch((error) => {
-            // Ignorer les erreurs d'annulation
             if (error.name !== 'AbortError' && error.name !== 'CanceledError') {
               console.error("Erreur lors de la reprise du traitement:", error);
               setProcessingStatus("error");

@@ -85,25 +85,25 @@ export async function searchSimilarTickets(ticketText: string): Promise<TicketSe
       const response = await axios.post(`${API_BASE_URL}/search-tickets`, {
           ticket_text: ticketText
       });
-      
+     
       const userData = localStorage.getItem('user');
       const user = userData ? JSON.parse(userData) : null;
       const token = localStorage.getItem('token');
-      
+     
       if (token && user) {
           try {
               // Calculer le score de similarité moyen s'il existe des tickets
               let maxSimilarity = null;
               if (response.data?.tickets && response.data.tickets.length > 0) {
                   const similarityScores = response.data.tickets.map((t: any) => t.similarity_score || 0);
-                  const maxSimilarity = Math.max(...similarityScores);  // Utiliser le score max
+                  maxSimilarity = Math.max(...similarityScores);  // Utiliser le score max
               }
-              
+             
               await addSearchToHistory(ticketText, {
                   result: JSON.stringify(response.data),
                   ticketIds: response.data?.tickets?.map((t: any) => t.ticket_id) || [],
-                  similarity_score: maxSimilarity,  // Ajouter le score de similarité moyen
-                  search_time: response.data?.temps_recherche || null  // Ajouter le temps de recherche
+                  similarity_score: maxSimilarity,  // Ajouter le score de similarité max
+                  search_time: response.data?.temps_recherche || null  // Utiliser le temps de recherche de la réponse
               });
           } catch (error) {
               console.error("Erreur lors de l'ajout à l'historique:", error);

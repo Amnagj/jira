@@ -95,8 +95,8 @@ def send_email(recipient_email, username, password):
         # Configuration SMTP
         smtp_server = "smtp.gmail.com"
         smtp_port = 587
-        smtp_username = "goujaamna8@gmail.com"  # Remplacez par votre email
-        smtp_password = "usnu eodm vvrh qdpg"  # Remplacez par votre mot de passe d'application Gmail
+        smtp_username = "vermegteam@gmail.com"  # Remplacez par votre email
+        smtp_password = "lmvw yimz iorl zcfp"  # Remplacez par votre mot de passe d'application Gmail
        
         # Créer le message
         msg = MIMEMultipart()

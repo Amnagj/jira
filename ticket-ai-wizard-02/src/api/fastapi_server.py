@@ -6,11 +6,14 @@ To run this server, install FastAPI and uvicorn:
 Then run: 
     uvicorn fastapi_server:app --reload 
 """ 
+import json
 from queue import Full
 from urllib import request
-from fastapi import Body 
-from fastapi.security import OAuth2PasswordRequestForm , OAuth2PasswordBearer 
-from backend.auth import authenticate_user, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES , get_current_user 
+from fastapi import Body, Request 
+from fastapi.security import OAuth2PasswordRequestForm , OAuth2PasswordBearer
+from jose import JWTError
+import jwt 
+from backend.auth import ALGORITHM, SECRET_KEY, authenticate_user, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES , get_current_user 
 from datetime import timedelta 
 from fastapi.middleware.cors import CORSMiddleware 
 from pydantic import BaseModel, validator 
@@ -1000,12 +1003,12 @@ async def get_database_stats(current_user: dict = Depends(get_current_user)):
         
         # Obtenir la taille des collections dans la base Access
         db_access = client["Access"]
-        history_size = db_access.command("collStats", "Historique_Messages")["storageSize"]
-        users_size = db_access.command("collStats", "Users")["storageSize"]
+        history_size = db_access.command("collStats", "Historique_Messages")["totalSize"]
+        users_size = db_access.command("collStats", "Users")["totalSize"]
         
         # Obtenir la taille de la collection dans la base jira
         db_jira = client["jira"]
-        tickets_size = db_jira.command("collStats", "tickets")["storageSize"]
+        tickets_size = db_jira.command("collStats", "tickets")["totalSize"]
         
         # Calculer la taille totale
         total_size = history_size + users_size + tickets_size
@@ -1049,6 +1052,32 @@ async def get_database_stats(current_user: dict = Depends(get_current_user)):
             "status": "error",
             "message": f"Erreur lors de la récupération des statistiques: {str(e)}"
         }
+
+@app.post("/auth/refresh-token")
+async def refresh_token(request: Request):
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Token invalide ou manquant")
+    
+    token = auth_header.split(" ")[1]
+    
+    try:
+        # Vérifier et décoder le token
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id = payload.get("sub")
+        
+        if user_id is None:
+            raise HTTPException(status_code=401, detail="Token invalide")
+        
+        # Générer un nouveau token avec une nouvelle date d'expiration
+        access_token_expires = timedelta(minutes=60)  # Token valide pour 60 minutes
+        new_token = create_access_token(
+            data={"sub": user_id}, expires_delta=access_token_expires
+        )
+        
+        return {"access_token": new_token, "token_type": "bearer"}
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Token expiré ou invalide")
 
 # Root endpoint for API health check 
 @app.get("/") 

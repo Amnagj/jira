@@ -162,3 +162,10 @@
 .custom-scroll::-webkit-scrollbar-thumb:hover {
   background-color: rgba(32, 56, 95, 0.6);
 }
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

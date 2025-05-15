@@ -49,39 +49,35 @@ export const TicketUpload = ({
   } = useTicketState();
   const isDark = theme === "dark";
 
-  // Restauration du fichier et de l'état depuis le contexte global
   useEffect(() => {
-    // Vérifier si un traitement doit être continué au montage du composant
     continueProcessingIfNeeded();
-    // Si un traitement est en cours selon le contexte global
     if (ticketState.processingState.inProgress && !file) {
       console.log(
         "Restauration d'un traitement en cours depuis le contexte global"
       );
       setUploading(true);
-      // Restaurer le fichier si disponible
       if (ticketState.processingState.file) {
         setFile(ticketState.processingState.file);
       }
     }
-    // Si nous avons des données de ticket mais pas de fichier
     if (ticketState.ticketData && !file) {
       setUploading(ticketState.loadingAnalysis);
     }
-    // Si nous avons des résultats de recherche, considérer que le traitement est terminé
-    if (ticketState.searchResults && ticketState.searchResults.length > 0) {
-      setIsMinimized(true);
-    }
-  }, [
-    ticketState,
-    file,
-    continueProcessingIfNeeded,
-    ticketState.processingState.inProgress,
-    ticketState.processingState.file,
-    ticketState.ticketData,
-    ticketState.loadingAnalysis,
-    ticketState.searchResults,
-  ]);
+    if (ticketState.searchResults && ticketState.searchResults.length > 0 && file) {
+    setIsMinimized(true);
+  } else if (!file) {
+    setIsMinimized(false);
+  }
+}, [
+  ticketState,
+  file,
+  continueProcessingIfNeeded,
+  ticketState.processingState.inProgress,
+  ticketState.processingState.file,
+  ticketState.ticketData,
+  ticketState.loadingAnalysis,
+  ticketState.searchResults,
+]);
 
   const extractExcelData = async (file: File) => {
     try {
@@ -262,6 +258,7 @@ export const TicketUpload = ({
     setProcessingStatus("cancelled");
     cancelProcessing(); // Appeler la fonction d'annulation du contexte
     setUploading(false);
+    setIsMinimized(false);
     onTicketDataExtracted(null, false);
     toast({
       title: "Traitement annulé",
@@ -276,12 +273,9 @@ export const TicketUpload = ({
     setUploading(true);
     setContextProgress(0);
     try {
-      // Démarrer le traitement via le contexte global pour maintenir l'état
       setProcessingStatus("validating"); // Commencer par la validation
       const uploadPromise = startProcessing(file);
-      // Simuler l'avancement des différentes étapes
       const simulateProgress = async () => {
-        // Lecture du fichier Excel
         setProcessingStatus("reading_excel");
         setContextProgress(15);
         await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -342,18 +336,14 @@ J'ai trouvé une solution pour votre ticket!
             variant: "default",
           });
 
-          // SECTION CORRIGÉE: Utilisation de la fonction du service API
           if (localStorage.getItem("token")) {
             try {
-              // Calculer le score de similarité moyen
               const avgSimilarity = response.tickets
                 ? response.tickets.reduce(
                     (sum, t) => sum + (t.similarity_score || 0),
                     0
                   ) / response.tickets.length
                 : null;
-
-              // Utiliser la fonction directement depuis le service API
               const historyResponse = await addSearchToHistory(file.name, {
                 result: responseMessage,
                 ticketIds: ticketIds,
@@ -368,11 +358,9 @@ J'ai trouvé une solution pour votre ticket!
             }
           }
 
-          // Mettre à jour le contexte global avec les résultats
           setInitialMessage(responseMessage);
           setTicketIds(ticketIds);
           setSearchResults(response.tickets);
-          // Appeler aussi le callback local
           onFileUploaded(responseMessage, ticketIds, response.tickets);
         } else {
           toast({

@@ -357,10 +357,10 @@ const SystemOverview: React.FC<SystemOverviewProps> = ({
               <div className="mb-4">
                 <div className="flex justify-between text-sm mb-1">
                   <span>Espace total utilisé</span>
-                  <span>{formatBytes(totalDatabaseSize)} sur 15 GB</span>
+                  <span>{formatBytes(totalDatabaseSize)} sur éspace total</span>
                 </div>
                 <Progress
-                  value={(totalDatabaseSize / (15 * 1024 * 1024 * 1024)) * 100} // Convertir 15 GB en octets et calculer le pourcentage
+                  value={(totalDatabaseSize / (0.5 * 1024 * 1024 * 1024)) * 100} // Convertir 15 GB en octets et calculer le pourcentage
                   className={cn("h-2", isDark ? "bg-gray-700" : "bg-gray-200")}
                 />
               </div>

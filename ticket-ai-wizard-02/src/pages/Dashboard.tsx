@@ -87,6 +87,7 @@ const Dashboard = () => {
     setHistoryPanelVisible(!historyPanelVisible);
   };
 
+
   return (
     <div className="min-h-screen relative overflow-x-hidden font-sourcesans text-foreground">
       {isDark && <StarfieldBackground />}
@@ -161,18 +162,7 @@ const Dashboard = () => {
                       Importer votre ticket
                     </h2>
                     
-                    {/* Cancel button during processing */}
-                    {processingState.inProgress && (
-                      <Button 
-                        variant="destructive" 
-                        size="sm"
-                        onClick={handleCancelProcessing}
-                        className="flex items-center gap-1.5"
-                      >
-                        <StopCircle size={14} />
-                        <span>Annuler</span>
-                      </Button>
-                    )}
+                    
                   </div>
                   
                   {/* File upload component with improved layout */}
@@ -222,7 +212,6 @@ const Dashboard = () => {
                       <SimilarityResults
                         tickets={searchResults}
                         loading={false}
-                        searchTime={0.5}
                       />
                     </div>
                   </motion.div>
