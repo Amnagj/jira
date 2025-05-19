@@ -107,7 +107,7 @@ const Dashboard = () => {
               "text-xl md:text-2xl font-bold text-gradient mb-0",
               isDark ? "text-white" : "text-gray-800"
             )}>
-              Ticket AI Wizard
+              <br></br>
             </h1>
           </motion.div>
           

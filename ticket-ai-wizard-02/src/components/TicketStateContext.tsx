@@ -5,6 +5,7 @@ import React, {
   useEffect,
   useRef,
   ReactNode,
+  useCallback,
 } from "react";
 import { uploadExcelFile } from "@/api/fastApiService";
 import { useToast } from "@/hooks/use-toast";
@@ -54,6 +55,8 @@ interface TicketStateContextProps {
   continueProcessingIfNeeded: () => void;
   getRealProgressPercentage: () => number;
   getProcessStatusMessage: () => string;
+  resetRecoveryState: () => void; // Ajout de la fonction pour réinitialiser l'état de récupération
+
 }
 
 // Définition des étapes du processus dans l'ordre d'exécution
@@ -640,7 +643,6 @@ export const TicketStateProvider: React.FC<{ children: ReactNode }> = ({
       abortController: null,
     });
     
-    // Nettoyer l'intervalle de vérification si existant
     if (processingIntervalRef.current) {
       window.clearInterval(processingIntervalRef.current);
       processingIntervalRef.current = null;
@@ -659,6 +661,8 @@ export const TicketStateProvider: React.FC<{ children: ReactNode }> = ({
       progress: 0,
       status: "cancelled",
     });
+    setLoadingAnalysis(false);
+    setTicketData(null);
     
     // Nettoyer l'intervalle de vérification si existant
     if (processingIntervalRef.current) {
@@ -671,9 +675,16 @@ export const TicketStateProvider: React.FC<{ children: ReactNode }> = ({
     setTicketState(initialState);
     localStorage.removeItem("ticketState");
   };
-
+  const [recoveryAttempted, setRecoveryAttempted] = useState(false);
   // Fonction pour vérifier si un traitement est en cours et le continuer si nécessaire
-  const continueProcessingIfNeeded = () => {
+  const continueProcessingIfNeeded = useCallback(() => {
+    if (recoveryAttempted) {
+    return;
+  }
+  
+  // Marquer que la récupération a été tentée
+  setRecoveryAttempted(true);
+
     if (
       ticketState.processingState.inProgress &&
       !ticketState.processingState.uploadPromise
@@ -681,6 +692,12 @@ export const TicketStateProvider: React.FC<{ children: ReactNode }> = ({
       console.log(
         "Un traitement était en cours, mais la promesse a été perdue lors de la navigation"
       );
+      if (ticketState.searchResults && ticketState.searchResults.length > 0) {
+        console.log("Des résultats sont déjà disponibles, marquage du traitement comme terminé");
+        setProcessingStatus("completed");
+        endProcessing();
+        return;
+      }
 
       // Si nous avons un fichier en état de traitement
       if (ticketState.processingState.file) {
@@ -698,18 +715,15 @@ export const TicketStateProvider: React.FC<{ children: ReactNode }> = ({
           );
           // Attendre un peu avant de simuler la fin du traitement
           setTimeout(() => {
-            setProgress(100);
-            setProcessingStatus("finalizing");
+          setProgress(100);
+          setProcessingStatus("finalizing");
+          setTimeout(() => {
+            setProcessingStatus("completed");
             setLoadingAnalysis(false);
-            // Ne pas terminer le traitement si nous avons des résultats
-            if (
-              !ticketState.searchResults ||
-              ticketState.searchResults.length === 0
-            ) {
-              endProcessing();
-            }
-          }, 1500);
-          return;
+            endProcessing();
+          }, 1000);
+        }, 1500);
+        return;
         }
         
         // Créer un nouveau controller d'annulation
@@ -771,13 +785,20 @@ export const TicketStateProvider: React.FC<{ children: ReactNode }> = ({
           });
       }
     }
-  };
+  }, [ticketState.processingState.inProgress, ticketState.processingState.uploadPromise, 
+    ticketState.processingState.file, ticketState.processingState.progress, 
+    ticketState.processingState.status, ticketState.searchResults, recoveryAttempted]);
 
   // Utiliser useEffect pour restaurer le traitement au montage du contexte
-  useEffect(() => {
-    continueProcessingIfNeeded();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    useEffect(() => {
+    if (!recoveryAttempted) {
+      continueProcessingIfNeeded();
+    }
+  }, [continueProcessingIfNeeded, recoveryAttempted]);
+  
+  const resetRecoveryState = () => {
+    setRecoveryAttempted(false);
+  };
 
   const value = {
     ticketState,
@@ -797,7 +818,8 @@ export const TicketStateProvider: React.FC<{ children: ReactNode }> = ({
     setProgress,
     continueProcessingIfNeeded,
     getRealProgressPercentage,
-    getProcessStatusMessage
+    getProcessStatusMessage,
+    resetRecoveryState // Nouvelle fonction
   };
 
   return (

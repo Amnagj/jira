@@ -13,7 +13,8 @@ import {
   MessageCircle,
   BarChart3,
   Upload,
-  Settings
+  Settings,
+  Search
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
@@ -63,14 +64,14 @@ export const Navbar = () => {
       <Link
         to={href}
         className={cn(
-          "flex items-center gap-2 px-4 py-2 rounded-lg transition-colors",
+          "flex items-center gap-1 px-3 py-2 rounded-lg transition-all duration-100",
           isActive
             ? isDark
-              ? "bg-indigo-900/50 text-indigo-300 border border-indigo-700/50"
-              : "bg-blue-100 text-blue-700 border border-blue-200"
+              ? "bg-indigo-900/50 text-indigo-300 border border-indigo-700/50 shadow-[0_2px_4px_rgba(99,102,241,0.4)] transform translate-y-px"
+              : "bg-blue-100 text-blue-700 border border-blue-200 shadow-[0_2px_4px_rgba(37,99,235,0.3)] transform translate-y-px"
             : isDark
-              ? "hover:bg-indigo-900/30 text-blue-200/80 hover:text-indigo-300"
-              : "hover:bg-blue-50 text-gray-700 hover:text-blue-700"
+              ? "bg-indigo-900/10 text-blue-200/80 hover:bg-indigo-900/30 hover:text-indigo-300 shadow-[0_3px_5px_rgba(99,102,241,0.25)] hover:shadow-[0_4px_6px_rgba(99,102,241,0.4)]"
+              : "bg-blue-50/50 text-gray-700 hover:bg-blue-50 hover:text-blue-700 shadow-[0_3px_5px_rgba(37,99,235,0.2)] hover:shadow-[0_4px_6px_rgba(37,99,235,0.3)]"
         )}
         onClick={() => setIsOpen(false)}
       >
@@ -84,7 +85,7 @@ export const Navbar = () => {
   return (
     <header
       className={cn(
-        "fixed top-0 left-0 right-0 z-40 transition-all duration-300",
+        "fixed top-0 left-0 right-0 z-40 transition-all duration-200",
         scrolled
           ? isDark
             ? "bg-background/80 backdrop-blur-md"
@@ -110,7 +111,7 @@ export const Navbar = () => {
                 )}
                 <Star className="absolute -top-1 -right-1 text-yellow-300 animate-twinkle" size={12} />
               </div>
-              <span className="text-xl font-bold text-gradient">MegSupport</span>
+              <span className="text-xl font-bold text-gradient">VermegSupport</span>
             </Link>
           </motion.div>
 
@@ -119,12 +120,16 @@ export const Navbar = () => {
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
-            className="hidden md:flex items-center space-x-6"
+            className="hidden md:flex items-center space-x-3"
           >
             {isAuthenticated && (
               <>
                 <NavLink href="/" icon={<Home size={18} className={isDark ? "text-indigo-300" : "text-blue-600"} />}>
                   Accueil
+                </NavLink>
+                
+                <NavLink href="/dashboard" icon={<Search size={18} className={isDark ? "text-indigo-300" : "text-blue-600"} />}>
+                  Recherche Similarité
                 </NavLink>
                
                 {isAdmin && (
@@ -147,10 +152,10 @@ export const Navbar = () => {
                 >
                   <button
                     className={cn(
-                      "flex items-center px-3 py-1.5 rounded-full space-x-2",
+                      "flex items-center px-3 py-1.5 rounded-full space-x-2 transition-all duration-200",
                       isDark
-                        ? "bg-indigo-900/50 text-indigo-300 border border-indigo-700/50 hover:bg-indigo-900/70"
-                        : "bg-blue-100 text-blue-700 border border-blue-200 hover:bg-blue-200"
+                        ? "bg-indigo-900/50 text-indigo-300 border border-indigo-700/50 hover:bg-indigo-900/70 shadow-[0_3px_5px_rgba(99,102,241,0.25)] hover:shadow-[0_4px_6px_rgba(99,102,241,0.4)]"
+                        : "bg-blue-100 text-blue-700 border border-blue-200 hover:bg-blue-200 shadow-[0_3px_5px_rgba(37,99,235,0.2)] hover:shadow-[0_4px_6px_rgba(37,99,235,0.3)]"
                     )}
                     onClick={() => setShowUserDropdown(!showUserDropdown)}
                   >
@@ -163,15 +168,17 @@ export const Navbar = () => {
                   {showUserDropdown && (
                     <div
                       className={cn(
-                        "absolute right-0 mt-2 w-48 cosmic-card p-2 z-50",
-                        isDark ? "bg-background/90" : "bg-white"
+                        "absolute right-0 mt-2 w-48 cosmic-card p-2 z-50 shadow-xl",
+                        isDark ? "bg-background/90 shadow-indigo-500/10" : "bg-white shadow-blue-300/20"
                       )}
                     >
                       <div className="py-1">
                         <button
                           className={cn(
-                            "flex items-center w-full text-left px-4 py-2 rounded-lg gap-2",
-                            isDark ? "hover:bg-indigo-900/30 text-blue-200/80" : "hover:bg-blue-50 text-gray-700"
+                            "flex items-center w-full text-left px-4 py-2 rounded-lg gap-2 transition-all duration-200",
+                            isDark 
+                              ? "hover:bg-indigo-900/30 text-blue-200/80 hover:shadow-md hover:shadow-indigo-500/10" 
+                              : "hover:bg-blue-50 text-gray-700 hover:shadow-md hover:shadow-blue-300/20"
                           )}
                           onClick={logout}
                         >
@@ -194,14 +201,15 @@ export const Navbar = () => {
                 <Button
                   variant="ghost"
                   className={cn(
+                    "transition-all duration-200",
                     isDark
-                      ? "text-blue-200/80 hover:text-indigo-300 hover:bg-indigo-900/30"
-                      : "text-gray-700 hover:text-blue-700 hover:bg-blue-50"
+                      ? "text-blue-200/80 hover:text-indigo-300 hover:bg-indigo-900/30 shadow-[0_3px_5px_rgba(99,102,241,0.25)] hover:shadow-[0_4px_6px_rgba(99,102,241,0.4)]"
+                      : "text-gray-700 hover:text-blue-700 hover:bg-blue-50 shadow-[0_3px_5px_rgba(37,99,235,0.2)] hover:shadow-[0_4px_6px_rgba(37,99,235,0.3)]"
                   )}
                 >
                   <Link to="/login">Se connecter</Link>
                 </Button>
-                <Button className="cosmic-button">
+                <Button className="cosmic-button shadow-lg hover:shadow-xl">
                   <Link to="/signup">S'inscrire</Link>
                 </Button>
                 <div className="ml-2">
@@ -218,7 +226,12 @@ export const Navbar = () => {
               variant="ghost"
               size="icon"
               onClick={() => setIsOpen(!isOpen)}
-              className={isDark ? "text-indigo-300 hover:bg-indigo-900/30" : "text-blue-700 hover:bg-blue-50"}
+              className={cn(
+                "transition-all duration-200",
+                isDark 
+                  ? "text-indigo-300 hover:bg-indigo-900/30 shadow-[0_3px_5px_rgba(99,102,241,0.25)] hover:shadow-[0_4px_6px_rgba(99,102,241,0.4)]" 
+                  : "text-blue-700 hover:bg-blue-50 shadow-[0_3px_5px_rgba(37,99,235,0.2)] hover:shadow-[0_4px_6px_rgba(37,99,235,0.3)]"
+              )}
             >
               {isOpen ? <X /> : <Menu />}
             </Button>
@@ -228,7 +241,10 @@ export const Navbar = () => {
      
       {isOpen && (
         <motion.div
-          className="md:hidden cosmic-card m-2 p-4"
+          className={cn(
+            "md:hidden cosmic-card m-2 p-4 shadow-xl", 
+            isDark ? "shadow-indigo-500/10" : "shadow-blue-300/20"
+          )}
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -10 }}
@@ -240,26 +256,29 @@ export const Navbar = () => {
                   Accueil
                 </NavLink>
 
+                <NavLink href="/dashboard" icon={<Search size={18} className={isDark ? "text-indigo-300" : "text-blue-600"} />}>
+                  Recherche Similarité
+                </NavLink>
 
                 {isAdmin && (
                   <>
                     <NavLink href="/admin" icon={<BarChart3 size={18} className={isDark ? "text-indigo-300" : "text-blue-600"} />}>
-                      Dashboard Admin
+                      Dashboard
                     </NavLink>
                     <NavLink href="/admin/upload" icon={<Upload size={18} className={isDark ? "text-indigo-300" : "text-blue-600"} />}>
                       Import des données
                     </NavLink>
                     <NavLink href="/admin/users" icon={<UserCircle size={18} className={isDark ? "text-indigo-300" : "text-blue-600"} />}>
-                      Gestion Utilisateurs
+                      Gestion Users
                     </NavLink>
                   </>
                 )}
                
                 <div className={cn(
-                  "flex items-center gap-2 px-3 py-1.5 rounded-full w-fit",
+                  "flex items-center gap-2 px-3 py-1.5 rounded-full w-fit transition-all duration-200",
                   isDark
-                    ? "bg-indigo-900/50 text-indigo-300 border border-indigo-700/50"
-                    : "bg-blue-100 text-blue-700 border border-blue-200"
+                    ? "bg-indigo-900/50 text-indigo-300 border border-indigo-700/50 shadow-md shadow-indigo-500/20"
+                    : "bg-blue-100 text-blue-700 border border-blue-200 shadow-md shadow-blue-300/20"
                 )}>
                   <UserCircle size={18} />
                   <span className="truncate max-w-[150px]">{user?.username || "Utilisateur"}</span>
@@ -268,10 +287,10 @@ export const Navbar = () => {
                 <Button
                   variant="ghost"
                   className={cn(
-                    "flex items-center justify-start gap-2",
+                    "flex items-center justify-start gap-2 transition-all duration-200",
                     isDark
-                      ? "text-blue-200/80 hover:text-indigo-300 hover:bg-indigo-900/30"
-                      : "text-gray-700 hover:text-blue-700 hover:bg-blue-50"
+                      ? "text-blue-200/80 hover:text-indigo-300 hover:bg-indigo-900/30 shadow-[0_3px_5px_rgba(99,102,241,0.25)] hover:shadow-[0_4px_6px_rgba(99,102,241,0.4)]"
+                      : "text-gray-700 hover:text-blue-700 hover:bg-blue-50 shadow-[0_3px_5px_rgba(37,99,235,0.2)] hover:shadow-[0_4px_6px_rgba(37,99,235,0.3)]"
                   )}
                   onClick={() => {
                     logout();
@@ -289,15 +308,15 @@ export const Navbar = () => {
                 <Button
                   variant="ghost"
                   className={cn(
-                    "w-full justify-start",
+                    "w-full justify-start transition-all duration-200 shadow-md",
                     isDark
-                      ? "text-blue-200/80 hover:text-indigo-300"
-                      : "text-gray-700 hover:text-blue-700"
+                      ? "text-blue-200/80 hover:text-indigo-300 shadow-indigo-500/10 hover:shadow-lg hover:shadow-indigo-500/20"
+                      : "text-gray-700 hover:text-blue-700 shadow-blue-300/10 hover:shadow-lg hover:shadow-blue-300/20"
                   )}
                 >
                   <Link to="/login">Se connecter</Link>
                 </Button>
-                <Button className="w-full cosmic-button">
+                <Button className="w-full cosmic-button shadow-lg hover:shadow-xl">
                   <Link to="/signup">S'inscrire</Link>
                 </Button>
               </div>
@@ -311,6 +330,3 @@ export const Navbar = () => {
 
 
 export default Navbar;
-
-
-

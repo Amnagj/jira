@@ -100,10 +100,10 @@ const AdminManageUsers = () => {
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
             {/* Formulaire création utilisateur */}
-            <div className="lg:col-span-5">
+            <div className="lg:col-span-4">
               <Card
                 className={cn(
-                  "p-8 relative h-full min-h-[500px]",
+                  "p-7 relative h-full min-h-[500px]",
                   isDark
                     ? "bg-card/70 border-white/10"
                     : "bg-white border-gray-200"
@@ -129,7 +129,7 @@ const AdminManageUsers = () => {
             </div>
 
             {/* Liste des utilisateurs avec scroll */}
-            <div className="lg:col-span-7">
+            <div className="lg:col-span-8">
               <Card
                 className={cn(
                   "p-8 relative h-full min-h-[500px]",

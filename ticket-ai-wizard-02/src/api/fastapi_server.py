@@ -682,7 +682,17 @@ async def get_tickets_stats(current_user: dict = Depends(get_current_user), proj
             {"$sort": {"count": -1}}
         ]
        
-        tickets_by_project = list(tickets_collection.aggregate(pipeline_projects))
+        tickets_by_project_raw = list(tickets_collection.aggregate(pipeline_projects))
+
+
+        # Reformater pour avoir les top 5 + "Autres"
+        top_projects = tickets_by_project_raw[:5]
+        other_projects_count = sum(item["count"] for item in tickets_by_project_raw[5:])
+
+
+        tickets_by_project = top_projects
+        if other_projects_count > 0:
+            tickets_by_project.append({"_id": "Autres", "count": other_projects_count})
        
         # Liste des projets pour filtrage
         projects_list = tickets_collection.distinct("ticket_client_project")
@@ -706,7 +716,6 @@ async def get_tickets_stats(current_user: dict = Depends(get_current_user), proj
             "status": "error",
             "message": f"Erreur lors de la récupération des statistiques: {str(e)}"
         }
-
 
 
 
@@ -779,18 +788,28 @@ async def get_searches_stats(current_user: dict = Depends(get_current_user), pro
             }}
         ]
         similarity_distribution = list(history_collection.aggregate(pipeline_similarity_distribution))
-       
         # Top 5 des utilisateurs par nombre de recherches
         pipeline_users = [
             {"$match": match_filter},
             {"$group": {"_id": "$userId", "count": {"$sum": 1}}},
             {"$sort": {"count": -1}},
-            {"$limit": 5}
+           
         ]
-        
-        top_users_raw = list(history_collection.aggregate(pipeline_users))
+
+
+        # Étape 2: Récupérer tous les utilisateurs classés par nombre de recherches
+        all_users_ranked = list(history_collection.aggregate(pipeline_users))
+
+
+        # Étape 3: Séparer les 7 premiers utilisateurs et calculer le total pour les autres
+        top_7_users_raw = all_users_ranked[:7]
+        others_count = sum(user["count"] for user in all_users_ranked[7:]) if len(all_users_ranked) > 7 else 0
+
+
+        # Étape 4: Traiter les informations des top 7 utilisateurs comme avant
+       
         top_users = []
-        for user_data in top_users_raw:
+        for user_data in top_7_users_raw:
             user_id = user_data["_id"]
             if user_id:
                 # Rechercher l'utilisateur dans la collection Users par son ID
@@ -815,8 +834,14 @@ async def get_searches_stats(current_user: dict = Depends(get_current_user), pro
                     "username": "Système",
                     "count": user_data["count"]
                 })
-        
-        # Volume de tickets traités par projet
+        # Étape 5: Ajouter la catégorie "Others" si nécessaire
+        if  others_count > 0:
+            top_users.append({
+                "_id": "others",
+                "username": "Others",
+                "count": others_count
+            })
+       
         pipeline_project_volume = [
             {"$match": match_filter},
             {"$group": {

@@ -594,7 +594,7 @@ export function SearchHistory(): JSX.Element {
 
       {/* Zone principale de défilement de l'historique - Modifications ici */}
       <div className="flex-1 min-h-0 overflow-hidden">
-        <ScrollArea className="h-full">
+        <ScrollArea className="h-full w-full">
           {loading ? (
             <div className="flex items-center justify-center p-8">
               <div

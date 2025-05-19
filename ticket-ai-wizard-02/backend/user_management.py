@@ -106,7 +106,7 @@ def send_email(recipient_email, username, password):
        
         # Corps du message HTML
         body = f'''
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">  
             <h2 style="color: #4F46E5;">Bienvenue dans l'application VermegSupport!</h2>
             <p>Bonjour {username},</p>
             <p>Votre compte a été créé avec succès. Voici vos identifiants de connexion :</p>

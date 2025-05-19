@@ -11,7 +11,8 @@ import { useTicketState } from "./TicketStateContext";
 import {
   validateExcelFormat,
   extractTicketDataFromExcel,
-  addSearchToHistory, // Assurez-vous que cette fonction est importée si elle ne l'est pas déjà
+  addSearchToHistory, 
+  uploadExcelFile,// Assurez-vous que cette fonction est importée si elle ne l'est pas déjà
 } from "../api/fastApiService";
 import * as XLSX from "xlsx";
 import { Check, Clock, FileSearch, ZapIcon, AlertCircle } from "lucide-react";
@@ -29,6 +30,7 @@ export const TicketUpload = ({
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
+  const [attemptedRecovery, setAttemptedRecovery] = useState(false); // Pour éviter les récupérations en boucle
 
   const { toast } = useToast();
   const { theme } = useTheme();
@@ -44,40 +46,51 @@ export const TicketUpload = ({
     endProcessing,
     cancelProcessing,
     continueProcessingIfNeeded,
+    resetRecoveryState,
     setProgress: setContextProgress,
     setProcessingStatus,
   } = useTicketState();
   const isDark = theme === "dark";
 
   useEffect(() => {
-    continueProcessingIfNeeded();
-    if (ticketState.processingState.inProgress && !file) {
-      console.log(
-        "Restauration d'un traitement en cours depuis le contexte global"
-      );
-      setUploading(true);
-      if (ticketState.processingState.file) {
-        setFile(ticketState.processingState.file);
+    // Ne tenter la récupération qu'une seule fois par montage de composant
+    if (!attemptedRecovery) {
+      setAttemptedRecovery(true);
+      continueProcessingIfNeeded();
+      
+      // Si un traitement était en cours
+      if (ticketState.processingState.inProgress && !file) {
+        console.log("Restauration d'un traitement en cours depuis le contexte global");
+        setUploading(true);
+        
+        if (ticketState.processingState.file) {
+          setFile(ticketState.processingState.file);
+        }
+      }
+      
+      // Si des données existent déjà
+      if (ticketState.ticketData && !file) {
+        setUploading(ticketState.loadingAnalysis);
       }
     }
-    if (ticketState.ticketData && !file) {
-      setUploading(ticketState.loadingAnalysis);
-    }
+    
+    // Gestion de la minimisation basée sur les résultats
     if (ticketState.searchResults && ticketState.searchResults.length > 0 && file) {
-    setIsMinimized(true);
-  } else if (!file) {
-    setIsMinimized(false);
-  }
-}, [
-  ticketState,
-  file,
-  continueProcessingIfNeeded,
-  ticketState.processingState.inProgress,
-  ticketState.processingState.file,
-  ticketState.ticketData,
-  ticketState.loadingAnalysis,
-  ticketState.searchResults,
-]);
+      setIsMinimized(true);
+    } else if (!file) {
+      setIsMinimized(false);
+    }
+  }, [
+    ticketState,
+    file,
+    continueProcessingIfNeeded,
+    ticketState.processingState.inProgress,
+    ticketState.processingState.file,
+    ticketState.ticketData,
+    ticketState.loadingAnalysis,
+    ticketState.searchResults,
+    attemptedRecovery
+  ]);
 
   const extractExcelData = async (file: File) => {
     try {
@@ -259,13 +272,20 @@ export const TicketUpload = ({
     cancelProcessing(); // Appeler la fonction d'annulation du contexte
     setUploading(false);
     setIsMinimized(false);
+    setFile(null); // Réinitialiser le fichier
     onTicketDataExtracted(null, false);
+    
+    // Réinitialiser l'état de récupération pour éviter des problèmes futurs
+    setAttemptedRecovery(false);
+    resetRecoveryState();
+    
     toast({
       title: "Traitement annulé",
       description: "L'analyse du ticket a été annulée avec succès.",
       variant: "default",
     });
   };
+
 
   const handleUpload = async () => {
     if (!file) return;
@@ -416,7 +436,12 @@ J'ai trouvé une solution pour votre ticket!
         )}
       >
         {!file ? (
-          <FileDropzone onFileAccepted={setFile} />
+          <FileDropzone onFileAccepted={(newFile) => {
+            setFile(newFile);
+            // Réinitialiser l'état de récupération quand un nouveau fichier est ajouté
+            setAttemptedRecovery(false);
+            resetRecoveryState();
+          }} />
         ) : (
           <FilePreview
             file={file}
@@ -424,6 +449,8 @@ J'ai trouvé une solution pour votre ticket!
               setFile(null);
               onTicketDataExtracted(null, false);
               endProcessing();
+              setAttemptedRecovery(false);
+              resetRecoveryState();
             }}
             onUpload={validateAndUpload}
             uploading={uploading}

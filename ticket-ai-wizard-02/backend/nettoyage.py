@@ -62,5 +62,5 @@ def preprocess_tickets(input_data):
     df = df.dropna(how='all')  # Supprime les lignes où toutes les colonnes sont vides
    
     return df
-   
+
     
