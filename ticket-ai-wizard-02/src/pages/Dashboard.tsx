@@ -12,8 +12,8 @@ import { SearchHistory } from "@/components/SearchHistory";
 import { SimilarityResults } from "@/components/SimilarityResults";
 import { useTicketState } from "@/components/TicketStateContext";
 import { Button } from "@/components/ui/button";
-import { StopCircle, Eye, EyeOff, ChevronLeft, ChevronRight } from "lucide-react";
-
+import * as XLSX from 'xlsx';
+import { StopCircle, Eye, EyeOff, ChevronLeft, ChevronRight, Download } from "lucide-react";
 const Dashboard = () => {
   const {
     ticketState,
@@ -86,7 +86,28 @@ const Dashboard = () => {
   const toggleHistoryPanel = () => {
     setHistoryPanelVisible(!historyPanelVisible);
   };
-
+  const downloadTemplate = () => {
+    const headers = [
+      "key", "type", "created_date", "updated_date", "Affects_Version", "fix_version",
+      "Components", "priority", "description", "assignee", "reporter", "status",
+      "summary", "resolution", "comment", "inward_linked_issue_key", "message",
+      "estimated_budget", "original_estimate", "estimation_due_date", "last_commented",
+      "solution", "htu", "number_of_reject", "number_of_suspend", "fix_estimation",
+      "classement", "git_branch", "rank", "reject_reason", "sprint", "participants",
+      "rank_obsolete", "time_in_status", "impact", "date_of_first_response",
+      "git_commits_referenced", "root_cause", "request_participants", "client_project", "commits"
+    ];
+    
+    // Créer une feuille de calcul avec les en-têtes
+    const worksheet = XLSX.utils.aoa_to_sheet([headers]);
+    
+    // Créer un classeur
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Template");
+    
+    // Télécharger le fichier Excel
+    XLSX.writeFile(workbook, 'ticket_template.xlsx');
+  };
 
   return (
     <div className="min-h-screen relative overflow-x-hidden font-sourcesans text-foreground">
@@ -102,11 +123,26 @@ const Dashboard = () => {
           animate="visible"
         >
           <motion.div variants={itemVariants} className="text-center mb-4">
-            <h1 className={cn(
-              "text-xl md:text-2xl font-bold text-gradient mb-0 mt-8",
-              isDark ? "text-white" : "text-gray-800"
-            )}>
-            </h1>
+            <div className="flex justify-between items-center mb-0 mt-4">
+              <h1 className={cn(
+                "text-xl md:text-2xl font-bold text-gradient",
+                isDark ? "text-white" : "text-gray-800"
+              )}>
+              </h1>
+              
+              <Button
+                onClick={downloadTemplate}
+                variant="outline"
+                size="sm"
+                className={cn(
+                  "flex items-center gap-2",
+                  isDark ? "border-white/20 hover:bg-white/10" : "border-gray-300 hover:bg-gray-50"
+                )}
+              >
+                <Download size={16} />
+                Télécharger template
+              </Button>
+            </div>
           </motion.div>
           
           <div className="flex flex-col md:flex-row gap-4 relative">

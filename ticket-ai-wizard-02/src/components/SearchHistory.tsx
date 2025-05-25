@@ -142,7 +142,6 @@ export function SearchHistory(): JSX.Element {
 
 
 
-          // Appliquer le score de similarité uniquement au premier ticket (best match)
           if (
             item.similarity_score &&
             foundTickets.length > 0 &&
@@ -152,7 +151,6 @@ export function SearchHistory(): JSX.Element {
               if (index === 0 && ticket.ticket_id === item.ticketIds[0]) {
                 ticket.similarity_score = item.similarity_score;
               } else {
-                // Pour les autres tickets, on ne montre pas de score
                 ticket.similarity_score = undefined;
               }
             });
@@ -302,7 +300,7 @@ export function SearchHistory(): JSX.Element {
         "border rounded-xl h-full flex flex-col relative max-h-[calc(100vh-120px)]",
         isDark
           ? "bg-gradient-to-br from-[#0c1631] via-[#101a3b]/90 to-[#0c1631] border-[#1a2756]"
-          : "bg-gradient-to-br from-blue-700 via-blue-600 to-blue-500 border-blue-800 shadow-md"
+        : "bg-white border-gray-200 shadow-sm" 
       )}
       style={{ height: "calc(100vh - 120px)" }}
     >
@@ -311,7 +309,7 @@ export function SearchHistory(): JSX.Element {
           "p-3 border-b flex flex-col gap-2 sticky top-0 z-10",
           isDark
             ? "border-[#1a2756] bg-[#0c1631] backdrop-blur-sm"
-            : "border-blue-600 bg-blue-700/90 backdrop-blur-sm"
+    : "border-gray-200 bg-white/95 backdrop-blur-sm" 
         )}
       >
         <div className="flex items-center justify-between">
@@ -320,7 +318,7 @@ export function SearchHistory(): JSX.Element {
               size={16}
               className={isDark ? "text-indigo-400" : "text-white"}
             />
-            <span className={isDark ? "text-indigo-200" : "text-white"}>
+            <span className={isDark ? "text-indigo-200" : "text-gray-700"}>
               Historique de recherche
             </span>
           </h3>
@@ -348,14 +346,14 @@ export function SearchHistory(): JSX.Element {
               "w-full px-3 py-1.5 rounded-md text-sm focus:outline-none focus:ring-2 pl-8",
               isDark
                 ? "bg-blue-900/50 border border-blue-800 text-blue-100 placeholder-blue-400/70 focus:ring-blue-500"
-                : "bg-white/90 border border-blue-400 text-blue-900 placeholder-blue-500/70 focus:ring-blue-600"
+    : "bg-gray-50 border border-gray-300 text-gray-900 placeholder-gray-500 focus:ring-blue-500" 
             )}
           />
           <Search
             size={14}
             className={cn(
               "absolute left-2.5 top-1/2 -translate-y-1/2",
-              isDark ? "text-blue-400" : "text-blue-500"
+  isDark ? "text-blue-400" : "text-gray-400" 
             )}
           />
         </div>
@@ -370,7 +368,7 @@ export function SearchHistory(): JSX.Element {
             "absolute inset-0 z-20 flex flex-col rounded-xl border shadow-lg transition-all duration-600",
             isDark
               ? "bg-gradient-to-br from-[#0c1631] via-[#101a3b]/90 to-[#0c1631] border-[#1a2756]"
-              : "bg-gradient-to-br from-blue-100 via-white to-blue-100/50 border-blue-600"
+    : "bg-white border-gray-200 shadow-lg" 
           )}
         >
           <div
@@ -378,7 +376,7 @@ export function SearchHistory(): JSX.Element {
               "px-4 py-3 border-b flex items-center justify-between",
               isDark
                 ? "border-blue-900 bg-gradient-to-r from-blue-950 to-blue-900"
-                : "border-blue-600 bg-gradient-to-r from-blue-700 to-blue-600 text-white"
+    : "border-gray-200 bg-gray-50" 
             )}
           >
             <div className="flex items-center gap-3">
@@ -390,7 +388,7 @@ export function SearchHistory(): JSX.Element {
                   "p-1 h-8 w-8 rounded-full transition-all duration-200",
                   isDark
                     ? "text-indigo-400 hover:bg-[#1a2756]/70"
-                    : "text-white hover:bg-white/10"
+    : "text-gray-600 hover:bg-gray-200" 
                 )}
               >
                 <ChevronLeft size={16} />
@@ -400,7 +398,7 @@ export function SearchHistory(): JSX.Element {
                   size={18}
                   className={isDark ? "text-indigo-400" : "text-white"}
                 />
-                <span className={isDark ? "text-indigo-200" : "text-white"}>
+<span className={isDark ? "text-indigo-200" : "text-gray-700"}> 
                   Détails de la recherche
                 </span>
               </h3>
@@ -412,7 +410,7 @@ export function SearchHistory(): JSX.Element {
                     "px-3 py-1 rounded-full text-xs",
                     isDark
                       ? "bg-blue-800 text-indigo-200"
-                      : "bg-blue-500 text-white"
+    : "bg-gray-100 text-gray-700" 
                   )}
                 >
                   {currentDetails.length} tickets similaires
@@ -430,13 +428,13 @@ export function SearchHistory(): JSX.Element {
               "w-2 transition-colors",
               isDark
                 ? "bg-blue-950/20 hover:bg-blue-900/40"
-                : "bg-blue-100/40 hover:bg-blue-200/60"
+    : "bg-gray-100 hover:bg-gray-200" 
             )}
             thumbClassName={cn(
               "rounded-full w-1.5 transition-colors",
               isDark
                 ? "bg-blue-600/70 hover:bg-blue-500"
-                : "bg-blue-500/70 hover:bg-blue-600"
+    : "bg-gray-400 hover:bg-gray-500" 
             )}
           >
             {currentDetails.length > 0 ? (
@@ -446,10 +444,10 @@ export function SearchHistory(): JSX.Element {
                   <div
                     key={ticket.ticket_id}
                     className={cn(
-                      "border rounded-xl shadow-lg transition-all duration-500 mb-4", // Ajout de mb-4 pour l'espacement
+                      "border rounded-xl shadow-lg transition-all duration-500 mb-4", 
                       isDark
                         ? "border-[#1a2756] bg-gradient-to-br from-[#101a3b] to-[#0c1631"
-                        : "border-blue-600 bg-gradient-to-br from-white to-blue-50"
+    : "border-gray-200 bg-white shadow-sm" 
                     )}
                   >
                     <div
@@ -457,14 +455,14 @@ export function SearchHistory(): JSX.Element {
                         "flex justify-between items-center p-3 rounded-t-xl",
                         isDark
                           ? "bg-gradient-to-r from-[#1a2756] to-[#232f6a] border-b border-[#1a2756]"
-                          : "bg-gradient-to-r from-blue-600 to-blue-500 text-white border-b border-blue-400"
+    : "bg-gray-50 border-b border-gray-200" 
                       )}
                     >
-                      <div className="font-medium text-white flex items-center gap-2">
+<div className="font-medium text-gray-700 flex items-center gap-2"> 
                         <div
                           className={cn(
                             "h-6 w-6 rounded-full flex items-center justify-center",
-                            isDark ? "bg-blue-900" : "bg-blue-700"
+  isDark ? "bg-blue-900" : "bg-gray-200" 
                           )}
                         >
                           <Search size={12} className="text-white" />
@@ -479,8 +477,8 @@ export function SearchHistory(): JSX.Element {
                               ? "bg-emerald-900 text-emerald-200"
                               : "bg-amber-800 text-amber-100"
                             : index === 0
-                            ? "bg-emerald-600 text-white"
-                            : "bg-amber-600 text-white"
+    ? "bg-emerald-100 text-emerald-700" 
+    : "bg-amber-100 text-amber-700" 
                         )}
                       >
                         {index === 0 && ticket.similarity_score ? (

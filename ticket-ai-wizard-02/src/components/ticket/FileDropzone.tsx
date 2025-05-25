@@ -90,7 +90,7 @@ export const FileDropzone = ({ onFileAccepted }: FileDropzoneProps) => {
           "text-xs",
           isDark ? "text-gray-400" : "text-gray-500"
         )}>
-          Formats supportés: XLSX, XLS, CSV
+          Formats supportés: XLSX
         </p>
         <Button 
           type="button" 
