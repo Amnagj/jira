@@ -660,6 +660,8 @@ export const TicketStateProvider: React.FC<{ children: ReactNode }> = ({
       uploadPromise: null,
       progress: 0,
       status: "cancelled",
+      currentProcessStep: "cancelled", 
+      file: null,
     });
     setLoadingAnalysis(false);
     setTicketData(null);
@@ -670,10 +672,18 @@ export const TicketStateProvider: React.FC<{ children: ReactNode }> = ({
       processingIntervalRef.current = null;
     }
   };
+  const event = new CustomEvent('processCancelled');
+  window.dispatchEvent(event);
+  
+  // Supprimer toute information de session liée au traitement en cours
+  localStorage.removeItem("currentProcessStep");
+
 
   const clearTicketState = () => {
     setTicketState(initialState);
     localStorage.removeItem("ticketState");
+    localStorage.removeItem("currentProcessStep");
+    setRecoveryAttempted(false);
   };
   const [recoveryAttempted, setRecoveryAttempted] = useState(false);
   // Fonction pour vérifier si un traitement est en cours et le continuer si nécessaire

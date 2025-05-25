@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback  } from "react";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -10,6 +10,7 @@ import { deleteUser, resendInvitation, getUsers, updateUserRole } from "@/api/fa
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 
+
 interface User {
   _id: string;
   username: string;
@@ -17,8 +18,13 @@ interface User {
   isAdmin: boolean;
   createdAt: Date;
 }
+interface UserListProps {
+  onRefresh?: () => void;
+  refreshKey?: number; // Ajoute cette ligne
+}
 
-export const UsersList = () => {
+
+export const UsersList = ({ onRefresh, refreshKey }: UserListProps) => {
   // Style CSS pour éliminer la barre de défilement verticale
   const containerStyle = {
     overflowY: 'auto',
@@ -55,8 +61,9 @@ export const UsersList = () => {
   const [isUpdatingRole, setIsUpdatingRole] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>("");
 
+
   // Fonction pour charger les utilisateurs depuis MongoDB
-  const loadUsers = async () => {
+  let loadUsers = useCallback(async () => {
     setLoading(true);
     try {
       const response = await getUsers();
@@ -74,12 +81,26 @@ export const UsersList = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+  useEffect(() => {
+    loadUsers();
+  }, [loadUsers, refreshKey]); // Ajoute refreshKey ici
+
 
   // Charger les utilisateurs au chargement du composant
   useEffect(() => {
-    loadUsers();
-  }, []);
+    if (onRefresh) {
+      // Si onRefresh est fourni, synchroniser loadUsers avec onRefresh
+      const originalOnRefresh = onRefresh;
+      onRefresh = () => {
+        loadUsers().then(() => {
+          if (originalOnRefresh) {
+            originalOnRefresh();
+          }
+        });
+      };
+    }
+  }, [onRefresh, loadUsers]);
  
   // Fonction pour changer le rôle d'un utilisateur
   const handleChangeRole = async (userId: string, newRole: string) => {
@@ -87,7 +108,7 @@ export const UsersList = () => {
     try {
       const isAdmin = newRole === "admin";
       const result = await updateUserRole(userId, isAdmin);
-      
+     
       if (result.status === 'success') {
         // Mettre à jour la liste des utilisateurs localement
         setUsers(users.map(user => {
@@ -96,7 +117,7 @@ export const UsersList = () => {
           }
           return user;
         }));
-        
+       
         toast({
           title: "Rôle mis à jour",
           description: `Le rôle de l'utilisateur a été changé en ${isAdmin ? 'administrateur' : 'utilisateur standard'}.`,
@@ -120,16 +141,18 @@ export const UsersList = () => {
     }
   };
 
+
   // Filtrer les utilisateurs en fonction de la recherche
   const filteredUsers = useMemo(() => {
     if (!searchQuery.trim()) return users;
-    
+   
     const query = searchQuery.toLowerCase().trim();
-    return users.filter(user => 
-      user.username.toLowerCase().includes(query) || 
+    return users.filter(user =>
+      user.username.toLowerCase().includes(query) ||
       user.email.toLowerCase().includes(query)
     );
   }, [users, searchQuery]);
+
 
   // Trier les utilisateurs: admins en haut, utilisateurs normaux en bas
   const sortedUsers = useMemo(() => {
@@ -143,6 +166,7 @@ export const UsersList = () => {
     });
   }, [filteredUsers]);
 
+
   const handleDeleteUser = async () => {
     if (!deleteConfirmation.userId) return;
     setIsDeleting(true);
@@ -155,6 +179,9 @@ export const UsersList = () => {
           title: "Utilisateur supprimé",
           description: `L'utilisateur ${deleteConfirmation.username} a été supprimé avec succès.`,
         });
+        if (onRefresh) {
+          onRefresh();
+        }
       } else {
         toast({
           title: "Erreur",
@@ -174,6 +201,7 @@ export const UsersList = () => {
       setDeleteConfirmation({ open: false, userId: null, username: null });
     }
   };
+
 
   const handleResendEmail = async (userId: string, email: string, username: string) => {
     setIsResendingEmail(userId);
@@ -203,6 +231,7 @@ export const UsersList = () => {
     }
   };
 
+
   // Format date function
   const formatDate = (dateString: string) => {
     try {
@@ -219,6 +248,7 @@ export const UsersList = () => {
     }
   };
 
+
   if (loading) {
     return (
       <div className="flex justify-center items-center py-12">
@@ -228,6 +258,7 @@ export const UsersList = () => {
       </div>
     );
   }
+
 
   if (error) {
     return (
@@ -244,9 +275,11 @@ export const UsersList = () => {
     );
   }
 
+
   const isRootAdmin = (email: string) => {
     return email === "admin@gmail.com";
   };
+
 
   return (
     <>
@@ -265,7 +298,7 @@ export const UsersList = () => {
           />
         </div>
       </div>
-      
+     
       {sortedUsers.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 text-center">
           <AlertCircle size={48} className={cn("mb-4", isDark ? "text-gray-400" : "text-gray-500")} />
@@ -409,3 +442,4 @@ export const UsersList = () => {
     </>
   );
 };
+

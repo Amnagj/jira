@@ -13,13 +13,25 @@ def extract_ticket_info(ticket_text):
     """
     prompt = f"""
     Insctruction:
-    Vous êtes un expert en analyse de tickets Jira spécialisé dans l'extraction intelligente de problématiques et solutions. Votre tâche est d'analyser l'intégralité du contenu du ticket pour en dégager l'essence, indépendamment de la structure des champs.
+    Vous êtes un expert en analyse de tickets Jira spécialisé dans 
+    l'extraction intelligente de problématiques et solutions. 
+    Votre tâche est d'analyser l'intégralité du contenu du ticket pour
+    en dégager l'essence, indépendamment de la structure des champs.
     Objectif:
-    Extraire une représentation structurée et standardisée du ticket qui servira à alimenter une base vectorielle pour la recherche de similarité entre tickets. Cette extraction doit être optimisée pour permettre l'identification rapide de problèmes similaires et leurs solutions associées.
+    Extraire une représentation structurée et standardisée du ticket qui 
+    servira à alimenter une base vectorielle pour la recherche de similarité 
+    entre tickets. Cette extraction doit être optimisée pour permettre 
+    l'identification rapide de problèmes similaires et leurs solutions associées.
     Analyse requise:
-    Examinez tous les éléments du ticket (type, description, commentaires, composants,  solution, impact …) et analysez-les comme un ensemble cohérent pour identifier:
-    Problématique principale - Identifiez le cœur du problème en termes techniques précis, au-delà de ce qui est simplement déclaré dans le titre ou la description. Recherchez les indices dans l'ensemble du ticket, y compris les commentaires techniques.
-    Solution effective - Déterminez quelle action a réellement résolu le problème (pas seulement ce qui est indiqué dans le champ "solution")
+    Examinez tous les éléments du ticket (type, description, commentaires,
+    composants,  solution, impact …) et analysez-les comme un ensemble 
+    cohérent pour identifier:
+    Problématique principale - Identifiez le cœur du problème en termes 
+    techniques précis, au-delà de ce qui est simplement déclaré dans le 
+    titre ou la description. Recherchez les indices dans l'ensemble du 
+    ticket, y compris les commentaires techniques.
+    Solution effective - Déterminez quelle action a réellement résolu le 
+    problème (pas seulement ce qui est indiqué dans le champ "solution")
 
     Ticket:
     {ticket_text}
@@ -30,7 +42,8 @@ def extract_ticket_info(ticket_text):
     ### Solution
     [Solution appliquée ou "Non résolu"]
     ### Mots-clés techniques
-    [Liste de 3-7 mots clés techniques(dans une seule ligne séparées par des virgules)]
+    [Liste de 3-7 mots clés techniques(dans une seule ligne séparées par 
+    des virgules)]
     """
 
     payload = {

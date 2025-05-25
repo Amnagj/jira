@@ -4,7 +4,7 @@ import * as XLSX from 'xlsx';
 export const API_BASE_URL = 'http://localhost:8000';
 // Interface for the ticket search response
 interface TicketSearchResponse {
-  status: 'success' | 'not_found' | 'error';
+  status: 'success' | 'not_found' | 'error'| 'cancelled';
   message: string;
   tickets?: {
     ticket_id: string;
@@ -169,19 +169,29 @@ let globalRequestController: AbortController | null = null;
 
 export async function uploadExcelFile(file: File, abortSignal?: AbortSignal): Promise<TicketSearchResponse> {
   try {
+    if (abortSignal && abortSignal.aborted) {
+      console.log("La requête est déjà annulée avant son envoi");
+      return {
+        status: 'cancelled',
+        message: 'La requête a été annulée avant son envoi'
+      };
+    }
+    
     // Utiliser le AbortSignal fourni
     const formData = new FormData();
     formData.append('file', file);
     
     const token = localStorage.getItem('token');
-    const headers: Record<string, string> = {
-      'Content-Type': 'multipart/form-data'
-    };
-    
+     const headers: Record<string, string> = {};
+   
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     }
-    
+    if (abortSignal) {
+      abortSignal.addEventListener('abort', () => {
+        console.log("Signal d'annulation activé pendant la requête");
+      });
+    }
     const response = await axios.post(`${API_BASE_URL}/upload-file`, formData, {
       headers,
       signal: abortSignal, // Utiliser le signal d'annulation
@@ -204,17 +214,16 @@ export async function uploadExcelFile(file: File, abortSignal?: AbortSignal): Pr
           }
         );
       } catch (error) {
-        console.error("Erreur lors de l'enregistrement du message:", error);
       }
     }
     
     return response.data;
   } catch (error: any) {
     // Vérifier si l'erreur est due à une annulation
-    if (error.name === 'AbortError' || error.name === 'CanceledError') {
+    if (error.name === 'AbortError' || error.name === 'CanceledError'|| axios.isCancel(error)) {
       console.log("Requête annulée par l'utilisateur");
       return {
-        status: 'success', // Changer 'error' en 'success'
+        status: 'cancelled', // Changer 'error' en 'success'
         message: 'La requête a été annulée avec succès' // Message plus clair indiquant que l'annulation est faite
       };
     }
@@ -793,7 +802,7 @@ export async function updateUserRole(userId: string, isAdmin: boolean): Promise<
    
     // Récupérer le message d'erreur détaillé si disponible
     const errorMessage = error.response?.data?.detail ||
-                        'Une erreur est survenue lors de la mise à jour du rôle utilisateur.';
+   'Une erreur est survenue lors de la mise à jour du rôle utilisateur.';
    
     return {
       status: 'error',

@@ -43,8 +43,8 @@ const Dashboard = () => {
   // Callbacks pour maintenir la cohérence avec l'état global
   const handleFileUploaded = (message: string, ids?: string[], results?: any[]) => {
     setInitialMessage(message);
-    setTicketIds(ids);
-    setSearchResults(results || null);
+    setTicketIds(ids || undefined);
+    setSearchResults(message ? (results || null) : null);
   };
   
   const handleTicketDataExtracted = (data: Record<string, any> | null, loading: boolean) => {
@@ -93,7 +93,6 @@ const Dashboard = () => {
       {isDark && <StarfieldBackground />}
       {isDark && <CosmicElements />}
       <Navbar />
-      
       {/* Main content area with flexible layout */}
       <main className="container mx-auto pt-12 px-4 relative z-10 pb-10">
         <motion.div
@@ -104,10 +103,9 @@ const Dashboard = () => {
         >
           <motion.div variants={itemVariants} className="text-center mb-4">
             <h1 className={cn(
-              "text-xl md:text-2xl font-bold text-gradient mb-0",
+              "text-xl md:text-2xl font-bold text-gradient mb-0 mt-8",
               isDark ? "text-white" : "text-gray-800"
             )}>
-              <br></br>
             </h1>
           </motion.div>
           

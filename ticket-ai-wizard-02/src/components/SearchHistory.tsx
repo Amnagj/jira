@@ -22,6 +22,8 @@ import { useToast } from "@/components/ui/use-toast";
 import { CircleLoader } from "@/components/ui/circle-loader";
 
 
+
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,6 +36,8 @@ import {
 } from "@/components/ui/alert-dialog";
 
 
+
+
 interface HistoryItem {
   id: string;
   queryText: string;
@@ -43,6 +47,8 @@ interface HistoryItem {
 }
 
 
+
+
 interface TicketDetail {
   ticket_id: string;
   problem: string;
@@ -50,6 +56,8 @@ interface TicketDetail {
   keywords?: string;
   similarity_score?: number;
 }
+
+
 
 
 export function SearchHistory(): JSX.Element {
@@ -70,10 +78,14 @@ export function SearchHistory(): JSX.Element {
     useTicketState();
 
 
+
+
   const handleDeleteClick = (id: string): void => {
     setSelectedId(id);
     setIsDeleteDialogOpen(true);
   };
+
+
 
 
   const confirmDelete = (): void => {
@@ -84,6 +96,8 @@ export function SearchHistory(): JSX.Element {
   };
 
 
+
+
   const confirmClearAll = (): void => {
     clearHistory();
     setIsClearDialogOpen(false);
@@ -91,6 +105,8 @@ export function SearchHistory(): JSX.Element {
   const filteredHistory = history.filter((item) =>
     item.queryText.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+
 
 
   const handleViewDetails = async (item: HistoryItem): Promise<void> => {
@@ -103,8 +119,12 @@ export function SearchHistory(): JSX.Element {
         console.log("Tickets IDs recherchés:", item.ticketIds);
 
 
+
+
         const ticketsResponse = await getTicketsByIds(item.ticketIds);
         console.log("Détails des tickets récupérés:", ticketsResponse);
+
+
 
 
         if (
@@ -118,6 +138,8 @@ export function SearchHistory(): JSX.Element {
               t.problem !== "Ticket non trouvé" &&
               t.problem !== "Ticket non trouvé dans la base de données"
           );
+
+
 
 
           // Appliquer le score de similarité uniquement au premier ticket (best match)
@@ -137,9 +159,13 @@ export function SearchHistory(): JSX.Element {
           }
 
 
+
+
           setCurrentDetails(ticketsResponse.tickets);
           setDetailsVisible(true);
           setActiveTicketIndex(0);
+
+
 
 
           let responseMessage;
@@ -168,6 +194,8 @@ export function SearchHistory(): JSX.Element {
           }
 
 
+
+
           toast({
             title:
               foundTickets.length > 0 ? "Recherche restaurée" : "Attention",
@@ -186,8 +214,12 @@ export function SearchHistory(): JSX.Element {
           });
 
 
+
+
           setCurrentDetails([]);
           setDetailsVisible(true);
+
+
 
 
           const errorMessage = `
@@ -223,9 +255,13 @@ export function SearchHistory(): JSX.Element {
   };
 
 
+
+
   const closeDetails = (): void => {
     setDetailsVisible(false);
   };
+
+
 
 
   const formatDate = (timestamp: number): string => {
@@ -240,6 +276,8 @@ export function SearchHistory(): JSX.Element {
   };
 
 
+
+
   const nextTicket = () => {
     if (currentDetails.length > activeTicketIndex + 1) {
       setActiveTicketIndex(activeTicketIndex + 1);
@@ -247,11 +285,15 @@ export function SearchHistory(): JSX.Element {
   };
 
 
+
+
   const prevTicket = () => {
     if (activeTicketIndex > 0) {
       setActiveTicketIndex(activeTicketIndex - 1);
     }
   };
+
+
 
 
   return (
@@ -262,6 +304,7 @@ export function SearchHistory(): JSX.Element {
           ? "bg-gradient-to-br from-[#0c1631] via-[#101a3b]/90 to-[#0c1631] border-[#1a2756]"
           : "bg-gradient-to-br from-blue-700 via-blue-600 to-blue-500 border-blue-800 shadow-md"
       )}
+      style={{ height: "calc(100vh - 120px)" }}
     >
       <div
         className={cn(
@@ -317,6 +360,8 @@ export function SearchHistory(): JSX.Element {
           />
         </div>
       </div>
+
+
 
 
       {detailsVisible && (
@@ -377,7 +422,23 @@ export function SearchHistory(): JSX.Element {
           </div>
 
 
-          <ScrollArea className="flex-1 p-4 overflow-auto">
+
+
+          <ScrollArea
+            className="flex-1 p-4 overflow-auto"
+            scrollbarClassName={cn(
+              "w-2 transition-colors",
+              isDark
+                ? "bg-blue-950/20 hover:bg-blue-900/40"
+                : "bg-blue-100/40 hover:bg-blue-200/60"
+            )}
+            thumbClassName={cn(
+              "rounded-full w-1.5 transition-colors",
+              isDark
+                ? "bg-blue-600/70 hover:bg-blue-500"
+                : "bg-blue-500/70 hover:bg-blue-600"
+            )}
+          >
             {currentDetails.length > 0 ? (
               <div className="relative">
                
@@ -434,6 +495,8 @@ export function SearchHistory(): JSX.Element {
                     </div>
 
 
+
+
                     <div className="p-4 space-y-6">
                       <div>
                         <div
@@ -471,6 +534,8 @@ export function SearchHistory(): JSX.Element {
                       </div>
 
 
+
+
                       <div>
                         <div
                           className={cn(
@@ -505,6 +570,8 @@ export function SearchHistory(): JSX.Element {
                           {ticket.solution}
                         </div>
                       </div>
+
+
 
 
                       {ticket.keywords && (
@@ -592,9 +659,25 @@ export function SearchHistory(): JSX.Element {
       )}
 
 
+
+
       {/* Zone principale de défilement de l'historique - Modifications ici */}
       <div className="flex-1 min-h-0 overflow-hidden">
-        <ScrollArea className="h-full w-full">
+        <ScrollArea
+          className="h-full w-full"
+          scrollbarClassName={cn(
+            "w-2 transition-colors",
+            isDark
+              ? "bg-blue-950/20 hover:bg-blue-900/40"
+              : "bg-blue-100/40 hover:bg-blue-200/60"
+          )}
+          thumbClassName={cn(
+            "rounded-full w-1.5 transition-colors",
+            isDark
+              ? "bg-blue-600/70 hover:bg-blue-500"
+              : "bg-blue-500/70 hover:bg-blue-600"
+          )}
+        >
           {loading ? (
             <div className="flex items-center justify-center p-8">
               <div
@@ -753,6 +836,8 @@ export function SearchHistory(): JSX.Element {
       </div>
 
 
+
+
       {loadingDetails && (
         <div className="absolute inset-0 bg-blue-950/40 backdrop-blur-sm flex items-center justify-center z-10 rounded-xl">
           <div
@@ -768,6 +853,7 @@ export function SearchHistory(): JSX.Element {
           </div>
         </div>
       )}
+
 
       <AlertDialog
         open={isDeleteDialogOpen}
@@ -814,6 +900,7 @@ export function SearchHistory(): JSX.Element {
         </AlertDialogContent>
       </AlertDialog>
 
+
       <AlertDialog open={isClearDialogOpen} onOpenChange={setIsClearDialogOpen}>
         <AlertDialogContent
           className={cn(
@@ -826,6 +913,7 @@ export function SearchHistory(): JSX.Element {
             <AlertDialogTitle className={isDark ? "text-blue-100" : ""}>
               Effacer tout l'historique ?
             </AlertDialogTitle>
+
 
             <AlertDialogDescription>
               Cette action ne peut pas être annulée. Tout votre historique de
@@ -846,3 +934,6 @@ export function SearchHistory(): JSX.Element {
     </div>
   );
 }
+
+
+

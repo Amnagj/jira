@@ -128,7 +128,7 @@ export const FilePreview = ({
           )}
       </div>
       {uploading ? (
-        <div className="mt-3">
+        <div className="mt-3"> 
           <ProcessingIndicator
             currentStep={processingStep}
             isLongRunning={isLongRunning}

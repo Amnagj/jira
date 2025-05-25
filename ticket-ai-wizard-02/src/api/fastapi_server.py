@@ -136,138 +136,149 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
 
 
 @app.post("/upload-file", response_model=SearchResponse) 
-async def upload_file(file: UploadFile = File(...), current_user: dict = Depends(get_current_user_optional)): 
+async def upload_file(request: Request, file: UploadFile = File(...), current_user: dict = Depends(get_current_user_optional)):
     try:
-        # Créer un fichier temporaire
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx') as tmp:
-            # Copier le fichier uploadé dans le fichier temporaire
-            shutil.copyfileobj(file.file, tmp)
-            temp_file_path = tmp.name
-           
-        print(f"Fichier temporaire créé: {temp_file_path}")
-       
+        # Vérifier périodiquement si la connexion a été interrompue
+    
         try:
-            # Vérifier que le fichier existe
-            if not os.path.exists(temp_file_path):
-                raise HTTPException(
-                    status_code=500,
-                    detail="Le fichier temporaire n'a pas été correctement créé"
-                )
-               
-            # Essayer de lire le fichier avec pandas d'abord pour vérifier qu'il est lisible
-            import pandas as pd
+            # Créer un fichier temporaire
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx') as tmp:
+                # Copier le fichier uploadé dans le fichier temporaire
+                shutil.copyfileobj(file.file, tmp)
+                temp_file_path = tmp.name
+            
+            print(f"Fichier temporaire créé: {temp_file_path}")
+        
             try:
-                df = pd.read_excel(temp_file_path)
-                print(f"Fichier Excel lu avec succès, {len(df)} lignes trouvées")
-            except Exception as excel_error:
-                print(f"Erreur lors de la lecture du fichier Excel: {excel_error}")
-                raise HTTPException(
-                    status_code=500,
-                    detail=f"Erreur lors de la lecture du fichier Excel: {str(excel_error)}"
-                )
-            try:
-                from backend.embeddings_final import RechercheTicketsEmbeddingsOptimized
-                print("Module embeddings_final importé avec succès")
-            except ImportError as import_error:
-                print(f"Erreur d'importation du module embeddings_final: {import_error}")
-                # Nettoyer et renvoyer une erreur
-                os.unlink(temp_file_path)
-                raise HTTPException(
-                    status_code=500,
-                    detail=f"Erreur d'importation du module embeddings_final: {str(import_error)}"
-                )
-           
-            # Initialiser le moteur de recherche avec le chemin du fichier
-            try:
-                from backend.embeddings_final import CONFIG
-                custom_config = CONFIG.copy()  # Copier la configuration par défaut
-                custom_config["PATHS"]["excel_input"] = temp_file_path  # Mettre à jour le chemin du fichier Excel
-                recherche = RechercheTicketsEmbeddingsOptimized(config=custom_config)
-                print("Instance de RechercheTicketsEmbeddingsOptimized créée")
-            except Exception as instance_error:
-                print(f"Erreur lors de la création de l'instance RechercheTicketsEmbeddingsOptimized: {instance_error}")
-                # Nettoyer et renvoyer une erreur
-                os.unlink(temp_file_path)
-                raise HTTPException(
-                    status_code=500,
-                    detail=f"Erreur lors de l'initialisation du moteur de recherche: {str(instance_error)}"
-                )
-
-
-            # Lire le contenu du fichier Excel avec gestion d'erreurs
-            try:
-                resultats = recherche.traiter_fichier_excel()  # Utiliser la méthode qui traite le fichier
-                print(f"Fichier Excel traité avec succès, {len(resultats) if resultats else 0} résultats trouvés")
-            except Exception as process_error:
-                print(f"Erreur lors du traitement du fichier Excel: {process_error}")
-                # Nettoyer et renvoyer une erreur
-                os.unlink(temp_file_path)
-                raise HTTPException(
-                    status_code=500,
-                    detail=f"Erreur lors du traitement du fichier Excel: {str(process_error)}"
-                )
-            os.unlink(temp_file_path)
-            print("Fichier temporaire supprimé")
-           
-            if current_user and resultats and len(resultats) > 0:
-                try:
-                    
-                    # Extraire les données pertinentes
-                    tickets = resultats[0].get("tickets", [])
-                    temps_recherche = resultats[0].get("temps_recherche", None)
-                    additional_fields = resultats[0].get("additional_fields", {})
-
-                    # Calculer le score de similarité moyen s'il existe des tickets
-                    max_similarity = None
-                    if tickets:
-                        similarity_scores = [ticket.get("similarity_score", 0) for ticket in tickets]
-                        if similarity_scores:
-                            max_similarity = max(similarity_scores)
-                    
-                    add_history_item(
-                        user_id=current_user["id"],
-                        query_text=file.filename, # Utiliser le nom du fichier comme requête
-                        result=resultats[0].get("message", ""),
-                        ticket_ids=[ticket["ticket_id"] for ticket in tickets] if tickets else [],
-                        similarity_score=max_similarity,  # Ajouter le score de similarité moyen
-                        search_time=temps_recherche,
-                        key=additional_fields.get('key'),
-                        type=additional_fields.get('type'), 
-                        priority=additional_fields.get('priority'),
-                        client_project=additional_fields.get('client_project')
+                # Vérifier que le fichier existe
+                if not os.path.exists(temp_file_path):
+                    raise HTTPException(
+                        status_code=500,
+                        detail="Le fichier temporaire n'a pas été correctement créé"
                     )
-                    print("Résultat ajouté à l'historique avec succès")
-                except Exception as hist_error:
-                    print(f"Erreur lors de l'ajout à l'historique: {hist_error}")
-                return resultats[0] 
-            else: 
-                print("Aucun résultat trouvé") 
-                return { 
-                    "status": "not_found", 
-                    "message": "Aucun ticket similaire trouvé" 
-                } 
+                
+                # Essayer de lire le fichier avec pandas d'abord pour vérifier qu'il est lisible
+                import pandas as pd
+                try:
+                    df = pd.read_excel(temp_file_path)
+                    print(f"Fichier Excel lu avec succès, {len(df)} lignes trouvées")
+                except Exception as excel_error:
+                    print(f"Erreur lors de la lecture du fichier Excel: {excel_error}")
+                    raise HTTPException(
+                        status_code=500,
+                        detail=f"Erreur lors de la lecture du fichier Excel: {str(excel_error)}"
+                    )
+                try:
+                    from backend.embeddings_final import RechercheTicketsEmbeddingsOptimized
+                    print("Module embeddings_final importé avec succès")
+                except ImportError as import_error:
+                    print(f"Erreur d'importation du module embeddings_final: {import_error}")
+                    # Nettoyer et renvoyer une erreur
+                    os.unlink(temp_file_path)
+                    raise HTTPException(
+                        status_code=500,
+                        detail=f"Erreur d'importation du module embeddings_final: {str(import_error)}"
+                    )
+                if await request.is_disconnected():
+                    print("Client déconnecté, annulation du traitement")
+                    if os.path.exists(temp_file_path):
+                        os.unlink(temp_file_path)
+                    return {"status": "cancelled", "message": "Traitement annulé par l'utilisateur"}
+                    
+                # Initialiser le moteur de recherche avec le chemin du fichier
+                try:
+                    from backend.embeddings_final import CONFIG
+                    custom_config = CONFIG.copy()  # Copier la configuration par défaut
+                    custom_config["PATHS"]["excel_input"] = temp_file_path  # Mettre à jour le chemin du fichier Excel
+                    recherche = RechercheTicketsEmbeddingsOptimized(config=custom_config)
+                    print("Instance de RechercheTicketsEmbeddingsOptimized créée")
+                except Exception as instance_error:
+                    print(f"Erreur lors de la création de l'instance RechercheTicketsEmbeddingsOptimized: {instance_error}")
+                    # Nettoyer et renvoyer une erreur
+                    os.unlink(temp_file_path)
+                    raise HTTPException(
+                        status_code=500,
+                        detail=f"Erreur lors de l'initialisation du moteur de recherche: {str(instance_error)}"
+                    )
+
+
+                # Lire le contenu du fichier Excel avec gestion d'erreurs
+                try:
+                    resultats = recherche.traiter_fichier_excel()  # Utiliser la méthode qui traite le fichier
+                    print(f"Fichier Excel traité avec succès, {len(resultats) if resultats else 0} résultats trouvés")
+                except Exception as process_error:
+                    print(f"Erreur lors du traitement du fichier Excel: {process_error}")
+                    # Nettoyer et renvoyer une erreur
+                    os.unlink(temp_file_path)
+                    raise HTTPException(
+                        status_code=500,
+                        detail=f"Erreur lors du traitement du fichier Excel: {str(process_error)}"
+                    )
+                os.unlink(temp_file_path)
+                print("Fichier temporaire supprimé")
+            
+                if current_user and resultats and len(resultats) > 0:
+                    try:
+                        
+                        # Extraire les données pertinentes
+                        tickets = resultats[0].get("tickets", [])
+                        temps_recherche = resultats[0].get("temps_recherche", None)
+                        additional_fields = resultats[0].get("additional_fields", {})
+
+                        # Calculer le score de similarité moyen s'il existe des tickets
+                        max_similarity = None
+                        if tickets:
+                            similarity_scores = [ticket.get("similarity_score", 0) for ticket in tickets]
+                            if similarity_scores:
+                                max_similarity = max(similarity_scores)
+                        
+                        add_history_item(
+                            user_id=current_user["id"],
+                            query_text=file.filename, # Utiliser le nom du fichier comme requête
+                            result=resultats[0].get("message", ""),
+                            ticket_ids=[ticket["ticket_id"] for ticket in tickets] if tickets else [],
+                            similarity_score=max_similarity,  # Ajouter le score de similarité moyen
+                            search_time=temps_recherche,
+                            key=additional_fields.get('key'),
+                            type=additional_fields.get('type'), 
+                            priority=additional_fields.get('priority'),
+                            client_project=additional_fields.get('client_project')
+                        )
+                        print("Résultat ajouté à l'historique avec succès")
+                    except Exception as hist_error:
+                        print(f"Erreur lors de l'ajout à l'historique: {hist_error}")
+                    return resultats[0] 
+                else: 
+                    print("Aucun résultat trouvé") 
+                    return { 
+                        "status": "not_found", 
+                        "message": "Aucun ticket similaire trouvé" 
+                    } 
+                    
+            except Exception as e: 
+                print(f"Erreur générale lors du traitement: {e}") 
+                if os.path.exists(temp_file_path): 
+                    os.unlink(temp_file_path) 
+                raise HTTPException( 
+                    status_code=500, 
+                    detail=f"Erreur lors du traitement du fichier: {str(e)}" 
+                ) 
                 
         except Exception as e: 
-            print(f"Erreur générale lors du traitement: {e}") 
-            if os.path.exists(temp_file_path): 
-                os.unlink(temp_file_path) 
+            print(f"Erreur lors du téléchargement: {e}") 
+            # Si le fichier temporaire existe, le nettoyer 
+            if 'temp_file_path' in locals() and os.path.exists(temp_file_path):
+                try: 
+                    os.unlink(temp_file_path) 
+                except: 
+                    pass 
             raise HTTPException( 
                 status_code=500, 
-                detail=f"Erreur lors du traitement du fichier: {str(e)}" 
+                detail=f"Erreur lors du téléchargement du fichier: {str(e)}" 
             ) 
-            
-    except Exception as e: 
-        print(f"Erreur lors du téléchargement: {e}") 
-        # Si le fichier temporaire existe, le nettoyer 
-        if 'temp_file_path' in locals() and os.path.exists(temp_file_path):
-            try: 
-                os.unlink(temp_file_path) 
-            except: 
-                pass 
-        raise HTTPException( 
-            status_code=500, 
-            detail=f"Erreur lors du téléchargement du fichier: {str(e)}" 
-        ) 
+    except Exception as e:
+        print(f"Erreur lors du annulation: {e}") 
+
 
 
 @app.post("/search-history/add", response_model=dict)

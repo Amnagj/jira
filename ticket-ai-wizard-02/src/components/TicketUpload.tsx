@@ -200,6 +200,10 @@ export const TicketUpload = ({
 
   const validateAndUpload = async () => {
     if (!file) return;
+    setSearchResults(null);
+    setTicketIds(undefined);
+    setInitialMessage("");
+    onFileUploaded("");
     try {
       try {
         // Extraction des données du ticket pour prévisualisation
@@ -268,16 +272,19 @@ export const TicketUpload = ({
   // Fonction pour gérer l'annulation du traitement
   const handleCancelUpload = () => {
     console.log("Annulation du traitement demandée par l'utilisateur");
+    cancelProcessing();
     setProcessingStatus("cancelled");
-    cancelProcessing(); // Appeler la fonction d'annulation du contexte
     setUploading(false);
     setIsMinimized(false);
     setFile(null); // Réinitialiser le fichier
     onTicketDataExtracted(null, false);
     
-    // Réinitialiser l'état de récupération pour éviter des problèmes futurs
     setAttemptedRecovery(false);
     resetRecoveryState();
+    setSearchResults(null);
+    setTicketIds(undefined);
+    setInitialMessage("");
+    onFileUploaded("");
     
     toast({
       title: "Traitement annulé",
@@ -289,7 +296,10 @@ export const TicketUpload = ({
 
   const handleUpload = async () => {
     if (!file) return;
-
+    setSearchResults(null);
+    setTicketIds(undefined);
+    setInitialMessage("");
+    onFileUploaded("");
     setUploading(true);
     setContextProgress(0);
     try {
@@ -451,6 +461,10 @@ J'ai trouvé une solution pour votre ticket!
               endProcessing();
               setAttemptedRecovery(false);
               resetRecoveryState();
+              setSearchResults(null);
+              setTicketIds(undefined);
+              setInitialMessage("");
+              onFileUploaded("");
             }}
             onUpload={validateAndUpload}
             uploading={uploading}

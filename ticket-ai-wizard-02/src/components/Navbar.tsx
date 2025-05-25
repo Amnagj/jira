@@ -135,7 +135,7 @@ export const Navbar = () => {
                 {isAdmin && (
                   <>
                     <NavLink href="/admin" icon={<BarChart3 size={18} className={isDark ? "text-indigo-300" : "text-blue-600"} />}>
-                      Dashboard Admin
+                      Dashboard
                     </NavLink>
                     <NavLink href="/admin/upload" icon={<Upload size={18} className={isDark ? "text-indigo-300" : "text-blue-600"} />}>
                       Import des données
