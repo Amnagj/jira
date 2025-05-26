@@ -187,20 +187,37 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
  
-  const logout = () => {
-    if (refreshTimerRef.current) {
-      clearInterval(refreshTimerRef.current);
-      refreshTimerRef.current = null;
-    }
-    localStorage.removeItem("user");
-    localStorage.removeItem("token");
-    setUser(null);
+  
+const logout = () => {
+  if (refreshTimerRef.current) {
+    clearInterval(refreshTimerRef.current);
+    refreshTimerRef.current = null;
+  }
+ 
+  // Nettoyer TOUS les éléments du localStorage liés à l'état de l'application
+  localStorage.removeItem("user");
+  localStorage.removeItem("token");
+ 
+  // AJOUT IMPORTANT: Nettoyer l'état des tickets
+  localStorage.removeItem("ticketState");
+  localStorage.removeItem("currentProcessStep");
+ 
+  // Réinitialiser l'état utilisateur
+  setUser(null);
+ 
+  // IMPORTANT: Déclencher l'événement AVANT la navigation
+  const logoutEvent = new CustomEvent('userLogout');
+  window.dispatchEvent(logoutEvent);
+  
+  // Attendre un peu pour que les composants puissent traiter l'événement
+  setTimeout(() => {
     navigate("/login");
     toast({
       title: "Déconnexion réussie",
       description: "À bientôt!",
     });
-  };
+  }, 100);
+};
  
   return (
     <AuthContext.Provider

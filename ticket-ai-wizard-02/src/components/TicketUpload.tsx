@@ -1,5 +1,5 @@
 // src/components/TicketUpload.tsx
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react"; // Ajout de useCallback
 import { useTheme } from "@/hooks/useTheme";
 import { cn } from "@/lib/utils";
 import { FileDropzone } from "./ticket/FileDropzone";
@@ -7,30 +7,42 @@ import { FilePreview } from "./ticket/FilePreview";
 import { TicketInstructions } from "./TicketInstructions";
 import { useSearchHistory } from "@/hooks/useSearchHistory";
 import { useToast } from "@/hooks/use-toast";
+
 import { useTicketState } from "./TicketStateContext";
 import {
   validateExcelFormat,
   extractTicketDataFromExcel,
-  addSearchToHistory, 
-  uploadExcelFile,// Assurez-vous que cette fonction est importée si elle ne l'est pas déjà
+  addSearchToHistory,
+  uploadExcelFile, // Assurez-vous que cette fonction est importée si elle ne l'est pas déjà
 } from "../api/fastApiService";
 import * as XLSX from "xlsx";
 import { Check, Clock, FileSearch, ZapIcon, AlertCircle } from "lucide-react";
 
+declare global {
+  interface Window {
+    ticketUploadRef?: {
+      processGeneratedFile: (file: File) => void;
+    };
+  }
+}
+
 export const TicketUpload = ({
   onFileUploaded,
   onTicketDataExtracted,
+  onGeneratedFileReady,
 }: {
   onFileUploaded: (text: string, ticketIds?: string[], results?: any[]) => void;
   onTicketDataExtracted: (
     data: Record<string, any> | null,
     loading: boolean
   ) => void;
+  onGeneratedFileReady?: (file: File) => void; // NOUVELLE PROPRIÉTÉ
 }) => {
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [attemptedRecovery, setAttemptedRecovery] = useState(false); // Pour éviter les récupérations en boucle
+  const [pendingGeneratedFile, setPendingGeneratedFile] = useState<File | null>(null);
 
   const { toast } = useToast();
   const { theme } = useTheme();
@@ -49,33 +61,199 @@ export const TicketUpload = ({
     resetRecoveryState,
     setProgress: setContextProgress,
     setProcessingStatus,
+    resetAllStates,
   } = useTicketState();
+  
   const isDark = theme === "dark";
+useEffect(() => {
+    const handleUserLogout = () => {
+      console.log("Déconnexion détectée - réinitialisation du composant TicketUpload");
+      
+      // Réinitialiser tous les états locaux
+      setFile(null);
+      setUploading(false);
+      setIsMinimized(false);
+      setAttemptedRecovery(false);
+      setPendingGeneratedFile(null);
+      
+      // Réinitialiser les callbacks
+      onFileUploaded("");
+      onTicketDataExtracted(null, false);
+      
+      // Nettoyer la référence globale si nécessaire
+      if (window.ticketUploadRef) {
+        delete window.ticketUploadRef;
+      }
+    };
+
+    window.addEventListener('userLogout', handleUserLogout);
+    
+    return () => {
+      window.removeEventListener('userLogout', handleUserLogout);
+    };
+  }, [onFileUploaded, onTicketDataExtracted]);
+  // Définir validateAndUpload avec useCallback pour éviter les re-créations
+  const validateAndUpload = useCallback(async () => {
+  if (!file) {
+    console.log("Aucun fichier à traiter");
+    return;
+  }
+  
+  console.log("Début de la validation et upload pour:", file.name);
+  
+  // Réinitialiser les états liés aux résultats précédents
+  setSearchResults(null);
+  setTicketIds(undefined);
+  setInitialMessage("");
+  onFileUploaded("");
+  
+  try {
+    // Extraction des données du ticket pour prévisualisation
+    setProcessingStatus("extracting_preview");
+    console.log("Extraction des données du ticket...");
+    
+    try {
+      const extractionResult = await extractTicketDataFromExcel(file);
+      if (extractionResult.status === "success" && extractionResult.ticket_data) {
+        onTicketDataExtracted(extractionResult.ticket_data, true);
+        setTicketData(extractionResult.ticket_data);
+        setLoadingAnalysis(true);
+        console.log("Données du ticket extraites via API:", extractionResult.ticket_data);
+      } else {
+        throw new Error("Extraction API échouée, utilisation de la méthode locale");
+      }
+    } catch (error) {
+      console.log("Utilisation de la méthode d'extraction locale");
+      const ticketData = await extractExcelData(file);
+      if (ticketData) {
+        onTicketDataExtracted(ticketData, true);
+        setTicketData(ticketData);
+        setLoadingAnalysis(true);
+        console.log("Données du ticket extraites (méthode locale):", ticketData);
+      }
+    }
+    
+    // Validation du format du fichier Excel
+    setProcessingStatus("format_validation");
+    console.log("Validation du format...");
+    
+    const validation = await validateExcelFormat(file);
+    if (validation.isValid) {
+      console.log("Format valide, démarrage de l'upload");
+      handleUpload();
+    } else {
+      console.error("Format invalide:", validation.message);
+      onTicketDataExtracted(null, false);
+      setTicketData(null);
+      setLoadingAnalysis(false);
+      setProcessingStatus("error");
+      toast({
+        title: "Format incorrect",
+        description: validation.message,
+        variant: "destructive",
+      });
+    }
+  } catch (error) {
+    console.error("Erreur lors de la validation:", error);
+    setProcessingStatus("error");
+    onTicketDataExtracted(null, false);
+    setTicketData(null);
+    setLoadingAnalysis(false);
+    toast({
+      title: "Erreur de validation",
+      description: "Impossible de valider le format du fichier.",
+      variant: "destructive",
+    });
+  }
+}, [
+  file, 
+  setSearchResults, 
+  setTicketIds, 
+  setInitialMessage, 
+  onFileUploaded, 
+  setProcessingStatus, 
+  onTicketDataExtracted, 
+  setTicketData, 
+  setLoadingAnalysis, 
+  toast
+]);
+
+
+const processGeneratedFile = useCallback(async (generatedFile: File) => {
+  console.log("Fichier généré reçu pour traitement:", generatedFile.name);
+ 
+  // Réinitialiser l'état complètement
+  setFile(null);
+  setUploading(false);
+  setIsMinimized(false);
+  setAttemptedRecovery(false);
+  resetRecoveryState();
+ 
+  // Nettoyer l'état global
+  setSearchResults(null);
+  setTicketIds(undefined);
+  setInitialMessage("");
+  onFileUploaded("");
+  setTicketData(null);
+  setLoadingAnalysis(false);
+ 
+  console.log("État réinitialisé, définition du nouveau fichier");
+  
+  // Définir le nouveau fichier et déclencher le traitement
+  setFile(generatedFile);
+  
+  if (onGeneratedFileReady) {
+    onGeneratedFileReady(generatedFile);
+  }
+ 
+  // Déclencher automatiquement le traitement après un court délai
+  setTimeout(() => {
+    console.log("Déclenchement automatique du traitement");
+    validateAndUpload();
+  }, 300);
+  
+}, [
+  onGeneratedFileReady, 
+  validateAndUpload, 
+  resetRecoveryState, 
+  setSearchResults, 
+  setTicketIds, 
+  setInitialMessage, 
+  onFileUploaded, 
+  setTicketData, 
+  setLoadingAnalysis
+]);
 
   useEffect(() => {
     // Ne tenter la récupération qu'une seule fois par montage de composant
     if (!attemptedRecovery) {
       setAttemptedRecovery(true);
       continueProcessingIfNeeded();
-      
+
       // Si un traitement était en cours
       if (ticketState.processingState.inProgress && !file) {
-        console.log("Restauration d'un traitement en cours depuis le contexte global");
+        console.log(
+          "Restauration d'un traitement en cours depuis le contexte global"
+        );
         setUploading(true);
-        
+
         if (ticketState.processingState.file) {
           setFile(ticketState.processingState.file);
         }
       }
-      
+
       // Si des données existent déjà
       if (ticketState.ticketData && !file) {
         setUploading(ticketState.loadingAnalysis);
       }
     }
-    
+
     // Gestion de la minimisation basée sur les résultats
-    if (ticketState.searchResults && ticketState.searchResults.length > 0 && file) {
+    if (
+      ticketState.searchResults &&
+      ticketState.searchResults.length > 0 &&
+      file
+    ) {
       setIsMinimized(true);
     } else if (!file) {
       setIsMinimized(false);
@@ -89,7 +267,7 @@ export const TicketUpload = ({
     ticketState.ticketData,
     ticketState.loadingAnalysis,
     ticketState.searchResults,
-    attemptedRecovery
+    attemptedRecovery,
   ]);
 
   const extractExcelData = async (file: File) => {
@@ -198,77 +376,6 @@ export const TicketUpload = ({
     }
   };
 
-  const validateAndUpload = async () => {
-    if (!file) return;
-    setSearchResults(null);
-    setTicketIds(undefined);
-    setInitialMessage("");
-    onFileUploaded("");
-    try {
-      try {
-        // Extraction des données du ticket pour prévisualisation
-        setProcessingStatus("extracting_preview");
-        const extractionResult = await extractTicketDataFromExcel(file);
-        if (
-          extractionResult.status === "success" &&
-          extractionResult.ticket_data
-        ) {
-          onTicketDataExtracted(extractionResult.ticket_data, true);
-          setTicketData(extractionResult.ticket_data);
-          setLoadingAnalysis(true);
-          console.log(
-            "Données du ticket extraites:",
-            extractionResult.ticket_data
-          );
-        } else {
-          // Méthode alternative d'extraction si l'API échoue
-          const ticketData = await extractExcelData(file);
-          if (ticketData) {
-            onTicketDataExtracted(ticketData, true);
-            setTicketData(ticketData);
-            setLoadingAnalysis(true);
-            console.log(
-              "Données du ticket extraites (méthode locale):",
-              ticketData
-            );
-          }
-        }
-      } catch (error) {
-        console.error(
-          "Erreur lors de l'extraction des données du ticket:",
-          error
-        );
-      }
-      // Validation du format du fichier Excel
-      setProcessingStatus("format_validation");
-      const validation = await validateExcelFormat(file);
-      if (validation.isValid) {
-        handleUpload();
-      } else {
-        onTicketDataExtracted(null, false);
-        setTicketData(null);
-        setLoadingAnalysis(false);
-        setProcessingStatus("error");
-        toast({
-          title: "Format incorrect",
-          description: validation.message,
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error("Error validating file:", error);
-      setProcessingStatus("error");
-      onTicketDataExtracted(null, false);
-      setTicketData(null);
-      setLoadingAnalysis(false);
-      toast({
-        title: "Erreur de validation",
-        description: "Impossible de valider le format du fichier.",
-        variant: "destructive",
-      });
-    }
-  };
-
   // Fonction pour gérer l'annulation du traitement
   const handleCancelUpload = () => {
     console.log("Annulation du traitement demandée par l'utilisateur");
@@ -278,21 +385,20 @@ export const TicketUpload = ({
     setIsMinimized(false);
     setFile(null); // Réinitialiser le fichier
     onTicketDataExtracted(null, false);
-    
+
     setAttemptedRecovery(false);
     resetRecoveryState();
     setSearchResults(null);
     setTicketIds(undefined);
     setInitialMessage("");
     onFileUploaded("");
-    
+
     toast({
       title: "Traitement annulé",
       description: "L'analyse du ticket a été annulée avec succès.",
       variant: "default",
     });
   };
-
 
   const handleUpload = async () => {
     if (!file) return;
@@ -446,12 +552,14 @@ J'ai trouvé une solution pour votre ticket!
         )}
       >
         {!file ? (
-          <FileDropzone onFileAccepted={(newFile) => {
-            setFile(newFile);
-            // Réinitialiser l'état de récupération quand un nouveau fichier est ajouté
-            setAttemptedRecovery(false);
-            resetRecoveryState();
-          }} />
+          <FileDropzone
+            onFileAccepted={(newFile) => {
+              setFile(newFile);
+              setAttemptedRecovery(false);
+              resetRecoveryState();
+            }}
+            isProcessingGenerated={pendingGeneratedFile !== null}
+          />
         ) : (
           <FilePreview
             file={file}
@@ -474,7 +582,7 @@ J'ai trouvé une solution pour votre ticket!
         )}
       </div>
       {/* Instructions avec affichage conditionnel et taille adaptative */}
-      {(!file ) && (
+      {!file && (
         <div
           className={cn(
             "transition-all duration-300",

@@ -13,6 +13,12 @@ import { SimilarityResults } from "@/components/SimilarityResults";
 import { useTicketState } from "@/components/TicketStateContext";
 import { Button } from "@/components/ui/button";
 import * as XLSX from 'xlsx';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Plus, Trash2, Save } from "lucide-react";
+import { TicketFormDialog } from "@/components/TicketFormDialog";
+
 import { StopCircle, Eye, EyeOff, ChevronLeft, ChevronRight, Download } from "lucide-react";
 const Dashboard = () => {
   const {
@@ -39,7 +45,8 @@ const Dashboard = () => {
   
   // État pour gérer l'affichage du panneau d'historique
   const [historyPanelVisible, setHistoryPanelVisible] = useState(true);
-  
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [templateRows, setTemplateRows] = useState([{}]);
   // Callbacks pour maintenir la cohérence avec l'état global
   const handleFileUploaded = (message: string, ids?: string[], results?: any[]) => {
     setInitialMessage(message);
@@ -51,7 +58,8 @@ const Dashboard = () => {
     setTicketData(data);
     setLoadingAnalysis(loading);
   };
-  
+  const [pendingGeneratedFile, setPendingGeneratedFile] = useState<File | null>(null);
+
   const handleCancelProcessing = () => {
     console.log("Annulation du traitement demandée depuis Dashboard");
     cancelProcessing();
@@ -68,6 +76,39 @@ const Dashboard = () => {
       }
     }
   };
+// Remplacez la fonction handleGeneratedFile dans Dashboard.tsx par :
+
+const handleFileGenerated = (file: File) => {
+  console.log("Fichier généré dans Dashboard:", file.name);
+  
+  // Fonction de retry améliorée avec plus de tentatives et délais progressifs
+  const attemptTransmission = (attempt: number = 1, maxAttempts: number = 20) => {
+    if (window.ticketUploadRef?.processGeneratedFile) {
+      console.log(`Transmission réussie à la tentative ${attempt}`);
+      window.ticketUploadRef.processGeneratedFile(file);
+      return;
+    }
+    
+    if (attempt < maxAttempts) {
+      console.log(`Tentative ${attempt}/${maxAttempts} - Référence non disponible, retry dans ${attempt * 100}ms`);
+      setTimeout(() => {
+        attemptTransmission(attempt + 1, maxAttempts);
+      }, attempt * 100); // Délai progressif
+    } else {
+      console.error("Impossible de transmettre le fichier après", maxAttempts, "tentatives");
+      
+      // Fallback : déclencher un événement personnalisé
+      console.log("Utilisation du fallback avec événement personnalisé");
+      const event = new CustomEvent('generatedFileReady', { 
+        detail: { file } 
+      });
+      window.dispatchEvent(event);
+    }
+  };
+  
+  // Commencer les tentatives immédiatement
+  attemptTransmission();
+};
   
   const itemVariants = {
     hidden: { y: 20, opacity: 0 },
@@ -124,25 +165,32 @@ const Dashboard = () => {
         >
           <motion.div variants={itemVariants} className="text-center mb-4">
             <div className="flex justify-between items-center mb-0 mt-4">
-              <h1 className={cn(
-                "text-xl md:text-2xl font-bold text-gradient",
-                isDark ? "text-white" : "text-gray-800"
-              )}>
-              </h1>
-              
-              <Button
-                onClick={downloadTemplate}
-                variant="outline"
-                size="sm"
-                className={cn(
-                  "flex items-center gap-2",
-                  isDark ? "border-white/20 hover:bg-white/10" : "border-gray-300 hover:bg-gray-50"
-                )}
-              >
-                <Download size={16} />
-                Télécharger template
-              </Button>
-            </div>
+  <h1 className={cn(
+    "text-xl md:text-2xl font-bold text-gradient",
+    isDark ? "text-white" : "text-gray-800"
+  )}>
+  </h1>
+  
+  <div className="flex gap-2">
+    
+    <TicketFormDialog 
+  onFileGenerated={handleFileGenerated}
+  trigger={<Button>Créer un ticket</Button>}
+/>
+    <Button
+      onClick={downloadTemplate}
+      variant="outline"
+      size="sm"
+      className={cn(
+        "flex items-center gap-2",
+        isDark ? "border-white/20 hover:bg-white/10" : "border-gray-300 hover:bg-gray-50"
+      )}
+    >
+      <Download size={16} />
+      Télécharger template
+    </Button>
+  </div>
+</div>
           </motion.div>
           
           <div className="flex flex-col md:flex-row gap-4 relative">
@@ -185,12 +233,12 @@ const Dashboard = () => {
               {/* Upload section - more compact with balanced proportions */}
               <motion.div variants={itemVariants}>
                 <div className={cn(
-                  "mb-4 p-4 rounded-xl border",
+                  "mb-3 p-3 rounded-xl border",
                   isDark ? "bg-card/20 border-white/10" : "bg-white border-gray-200"
                 )}>
-                  <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center justify-between mb-2">
                     <h2 className={cn(
-                      "text-lg font-medium",
+                      "text-base font-medium",
                       isDark ? "text-white" : "text-gray-800"
                     )}>
                       Importer votre ticket
@@ -204,6 +252,7 @@ const Dashboard = () => {
                     <TicketUpload
                       onFileUploaded={handleFileUploaded}
                       onTicketDataExtracted={handleTicketDataExtracted}
+                      onGeneratedFileReady={handleFileGenerated}
                     />
                   </div>
                 </div>

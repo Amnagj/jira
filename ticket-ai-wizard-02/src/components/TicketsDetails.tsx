@@ -7,12 +7,17 @@ import {
   CheckCircle2, ChevronUp, ChevronDown
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ScrollArea } from "@/components/ui/scroll-area";
+
+
 
 
 interface TicketDetailsProps {
   ticketData: Record<string, any> | null;
   loading: boolean;
 }
+
+
 
 
 export const TicketDetails = ({ ticketData, loading }: TicketDetailsProps) => {
@@ -26,6 +31,8 @@ export const TicketDetails = ({ ticketData, loading }: TicketDetailsProps) => {
     Array<{ key: string; displayName: string }>
   >([]);
   const [currentFieldIndex, setCurrentFieldIndex] = useState(0);
+
+
 
 
   // Effet pour simuler l'affichage progressif pendant le chargement
@@ -43,6 +50,8 @@ export const TicketDetails = ({ ticketData, loading }: TicketDetailsProps) => {
       return () => clearInterval(interval);
     }
   }, [visibleFields, loading]);
+
+
 
 
   // Mise à jour des champs à afficher quand les données changent
@@ -77,6 +86,8 @@ export const TicketDetails = ({ ticketData, loading }: TicketDetailsProps) => {
   }, [ticketData]);
 
 
+
+
   // Effet pour mettre à jour les champs affichés progressivement
   useEffect(() => {
     if (visibleFields.length > 0) {
@@ -87,9 +98,13 @@ export const TicketDetails = ({ ticketData, loading }: TicketDetailsProps) => {
   }, [visibleFields, currentFieldIndex]);
 
 
+
+
   const toggleExpand = () => {
     setIsExpanded(!isExpanded);
   };
+
+
 
 
   const getFieldIcon = (key: string) => {
@@ -112,6 +127,8 @@ export const TicketDetails = ({ ticketData, loading }: TicketDetailsProps) => {
   };
 
 
+
+
   const formatFieldValue = (key: string, value: string) => {
     if (key === "priority") {
       return <span className="font-medium">{value}</span>;
@@ -123,11 +140,16 @@ export const TicketDetails = ({ ticketData, loading }: TicketDetailsProps) => {
   };
 
 
+
+
   if (!loading && !ticketData) return null;
+
+
 
 
   return (
     <div className="w-full mb-8">
+     
       {ticketData && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
@@ -170,43 +192,48 @@ export const TicketDetails = ({ ticketData, loading }: TicketDetailsProps) => {
           </div>
 
 
+
+
           {isExpanded && (
-            <div className="grid gap-2 mb-4 grid-cols-1">
-              <AnimatePresence>
-                {displayedTicketFields.map((field, index) => (
-                  <motion.div
-                    key={field.key}
-                    initial={{ opacity: 0, y: 15 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{
-                      duration: 0.4,
-                      delay: loading ? 0 : index * 0.1,
-                    }}
-                    className={cn(
-                      "py-2 px-3 rounded-lg shadow-sm border",
-                      isDark ? "bg-blue-900/10 border-blue-800/20" : "bg-white border-blue-100/80"
-                    )}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 flex items-center justify-center">
-                          {getFieldIcon(field.key)}
+            <ScrollArea className="h-48">
+              <div className="grid gap-2 mb-2 grid-cols-1 pr-4">{/* Ajout de pr-4 pour éviter que le contenu touche la scrollbar */}
+                <AnimatePresence>
+                  {displayedTicketFields.map((field, index) => (
+                    <motion.div
+                      key={field.key}
+                      initial={{ opacity: 0, y: 15 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{
+                        duration: 0.4,
+                        delay: loading ? 0 : index * 0.1,
+                      }}
+                      className={cn(
+                        "py-1.5 px-3 rounded-lg shadow-sm border", // Réduction du py-2 à py-1.5
+                        isDark ? "bg-blue-900/10 border-blue-800/20" :
+                        "bg-white border-blue-100/80"
+                      )}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="w-5 h-5 flex items-center justify-center"> {/* Réduction de w-6 h-6 à w-5 h-5 */}
+                            {getFieldIcon(field.key)}
+                          </div>
+                          <span className="text-sm font-medium">{field.displayName} :</span>
+                          <div className="text-sm ml-1">
+                            {formatFieldValue(field.key, String(ticketData[field.key]))}
+                          </div>
                         </div>
-                        <span className="text-sm font-medium">{field.displayName} :</span>
-                     
-                      <div className="text-sm ml-1">{formatFieldValue(field.key, String(ticketData[field.key]))}</div>
-                    </div>
-                    </div>
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-            </div>
+                      </div>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+              </div>
+            </ScrollArea>
           )}
         </motion.div>
       )}
     </div>
   );
 };
-
 
 

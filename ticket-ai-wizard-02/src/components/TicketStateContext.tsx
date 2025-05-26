@@ -56,7 +56,7 @@ interface TicketStateContextProps {
   getRealProgressPercentage: () => number;
   getProcessStatusMessage: () => string;
   resetRecoveryState: () => void; // Ajout de la fonction pour réinitialiser l'état de récupération
-
+resetAllStates :() => void;
 }
 
 // Définition des étapes du processus dans l'ordre d'exécution
@@ -198,6 +198,39 @@ export const TicketStateProvider: React.FC<{ children: ReactNode }> = ({
         
         return parsedState;
       }
+      
+      useEffect(() => {
+    const handleUserLogout = () => {
+      console.log("Déconnexion détectée - nettoyage de l'état des tickets");
+      
+      // Réinitialiser complètement l'état
+      setTicketState(initialState);
+      
+      // Nettoyer le localStorage
+      localStorage.removeItem("ticketState");
+      localStorage.removeItem("currentProcessStep");
+      
+      // Réinitialiser les flags de récupération
+      setRecoveryAttempted(false);
+      
+      // Annuler tout traitement en cours
+      if (ticketState.processingState.abortController) {
+        ticketState.processingState.abortController.abort();
+      }
+      
+      // Nettoyer les timers
+      if (processingIntervalRef.current) {
+        window.clearInterval(processingIntervalRef.current);
+        processingIntervalRef.current = null;
+      }
+    };
+
+    window.addEventListener('userLogout', handleUserLogout);
+    
+    return () => {
+      window.removeEventListener('userLogout', handleUserLogout);
+    };
+  }, [ticketState.processingState.abortController]);
     } catch (error) {
       console.error("Error loading ticket state from storage:", error);
     }
@@ -294,7 +327,79 @@ export const TicketStateProvider: React.FC<{ children: ReactNode }> = ({
       });
     }
   }, [ticketState.processingState.currentProcessStep]);
+const resetAllStates = useCallback(() => {
+    console.log("Réinitialisation complète de l'état des tickets");
+    
+    // Arrêter tous les timers en cours
+    if (processingIntervalRef.current) {
+      window.clearInterval(processingIntervalRef.current);
+      processingIntervalRef.current = null;
+    }
+    
+    // Annuler toute requête en cours
+    if (ticketState.processingState.abortController) {
+      ticketState.processingState.abortController.abort();
+    }
+    
+    // Réinitialiser complètement l'état
+    setTicketState({
+      ticketData: null,
+      loadingAnalysis: false,
+      searchResults: null,
+      initialMessage: undefined,
+      ticketIds: undefined,
+      processingState: {
+        inProgress: false,
+        file: null,
+        startTime: null,
+        uploadPromise: null,
+        progress: 0,
+        abortController: null,
+        status: "idle",
+        currentProcessStep: "idle",
+        realProgress: {
+          startedSteps: [],
+          completedSteps: [],
+          currentStep: "idle",
+          stepStartTime: null
+        }
+      }
+    });
+    
+    // Nettoyer le localStorage
+    localStorage.removeItem("ticketState");
+    localStorage.removeItem("currentProcessStep");
+    
+    // Réinitialiser les variables de récupération
+    setRecoveryAttempted(false);
+    
+    console.log("État des tickets complètement réinitialisé");
+  }, [ticketState.processingState.abortController]);
+useEffect(() => {
+    const handleUserLogout = () => {
+      console.log("Événement de déconnexion détecté, réinitialisation de l'état");
+      resetAllStates();
+    };
 
+    window.addEventListener('userLogout', handleUserLogout);
+    
+    return () => {
+      window.removeEventListener('userLogout', handleUserLogout);
+    };
+  }, [resetAllStates]);
+  // ÉCOUTER l'événement de déconnexion
+  useEffect(() => {
+    const handleUserLogout = () => {
+      console.log("Événement de déconnexion détecté, réinitialisation de l'état");
+      resetAllStates();
+    };
+
+    window.addEventListener('userLogout', handleUserLogout);
+    
+    return () => {
+      window.removeEventListener('userLogout', handleUserLogout);
+    };
+  }, [resetAllStates]);
   // Vérification de la durée totale du traitement
   useEffect(() => {
     if (ticketState.processingState.inProgress && ticketState.processingState.startTime) {
@@ -829,7 +934,9 @@ export const TicketStateProvider: React.FC<{ children: ReactNode }> = ({
     continueProcessingIfNeeded,
     getRealProgressPercentage,
     getProcessStatusMessage,
-    resetRecoveryState // Nouvelle fonction
+    resetRecoveryState ,
+    resetAllStates // Ajouter cette nouvelle fonction au contexte
+
   };
 
   return (

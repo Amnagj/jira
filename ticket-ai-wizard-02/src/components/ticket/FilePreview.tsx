@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { ProcessingIndicator } from "@/components/ProcessingIndicator";
 import { useTicketState } from "@/components/TicketStateContext";
 
+
 type FilePreviewProps = {
   file: File;
   onRemove: () => void;
@@ -15,6 +16,7 @@ type FilePreviewProps = {
   processingStatus?: string;
   uploading: boolean;
 };
+
 
 export const FilePreview = ({
   file,
@@ -28,13 +30,13 @@ export const FilePreview = ({
   const isDark = theme === "dark";
   const [isReady, setIsReady] = useState(false);
   const { ticketState } = useTicketState();
-  
+ 
   // Utiliser directement les informations de l'état de traitement depuis le contexte
   const processingStep = ticketState.processingState.status;
-  
+ 
   // Détecter les traitements qui prennent trop de temps (> 90 secondes)
   const [isLongRunning, setIsLongRunning] = useState(false);
-  
+ 
   useEffect(() => {
     // Vérifier si le traitement prend trop de temps
     if (uploading && ticketState.processingState.startTime) {
@@ -45,13 +47,14 @@ export const FilePreview = ({
           setIsLongRunning(true);
         }
       };
-      
+     
       const timer = setInterval(checkDuration, 5000);
       return () => clearInterval(timer);
     }
-    
+   
     return () => {};
   }, [uploading, ticketState.processingState.startTime]);
+
 
   useEffect(() => {
     // Simulate file validation delay
@@ -60,6 +63,7 @@ export const FilePreview = ({
     }, 800);
     return () => clearTimeout(timer);
   }, [file]);
+
 
   // Format file size
   const formatFileSize = (sizeInBytes: number): string => {
@@ -71,6 +75,7 @@ export const FilePreview = ({
       return `${(sizeInBytes / (1024 * 1024)).toFixed(1)} MB`;
     }
   };
+
 
   return (
     <div
@@ -116,6 +121,24 @@ export const FilePreview = ({
             </p>
           </div>
         </div>
+        {/* À droite : bouton annuler OU bouton supprimer */}
+        <div className="flex items-center gap-2">
+          {uploading && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onCancel}
+              className={cn(
+                "flex items-center gap-2 text-xs py-1 h-7",
+                isDark
+                  ? "border-red-800/50 bg-red-900/30 text-red-400 hover:bg-red-900/40"
+                  : "border-red-200 bg-red-50 text-red-600 hover:bg-red-100"
+              )}
+            >
+              <StopCircle className="h-3 w-3" />
+              Annuler le traitement
+            </Button>
+          )}
           {!uploading && (
             <Button
               variant="ghost"
@@ -126,30 +149,14 @@ export const FilePreview = ({
               <X className="h-4 w-4" />
             </Button>
           )}
+        </div>
       </div>
       {uploading ? (
-        <div className="mt-3"> 
+        <div className="mt-3">
           <ProcessingIndicator
             currentStep={processingStep}
             isLongRunning={isLongRunning}
           />
-          <div className="mt-3 flex justify-end">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onCancel}
-            className={cn(
-              "flex items-center gap-2 text-xs py-1 h-7",
-              isDark
-                ? "border-red-800/50 bg-red-900/30 text-red-400 hover:bg-red-900/40"
-                : "border-red-200 bg-red-50 text-red-600 hover:bg-red-100"
-            )}
-          >
-            <StopCircle className="h-3 w-3" />
-            Annuler le traitement
-          </Button>
-
-          </div>
         </div>
       ) : (
         <div className="mt-4">
@@ -186,3 +193,4 @@ export const FilePreview = ({
     </div>
   );
 };
+
