@@ -302,7 +302,7 @@ export function SearchHistory(): JSX.Element {
           ? "bg-gradient-to-br from-[#0c1631] via-[#101a3b]/90 to-[#0c1631] border-[#1a2756]"
         : "bg-white border-gray-200 shadow-sm" 
       )}
-      style={{ height: "calc(100vh - 120px)" }}
+      style={{ height: "calc(100vh - 200px)" }}
     >
       <div
         className={cn(

@@ -176,7 +176,11 @@ export const FilePreview = ({
           </div>
           ) : (
             <Button
-              onClick={onUpload}
+              onClick={() => {
+                  if (!uploading) { // AJOUT : Vérifier si pas déjà en cours
+                    onUpload();
+                  }
+                }}  
               className={cn(
                 "w-full h-8 text-sm",
                 isDark

@@ -16,11 +16,10 @@ import * as XLSX from 'xlsx';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Trash2, Save } from "lucide-react";
+import { Trash2, Save } from "lucide-react";
 import { TicketFormDialog } from "@/components/TicketFormDialog";
 
-import { StopCircle, Eye, EyeOff, ChevronLeft, ChevronRight, Download } from "lucide-react";
-const Dashboard = () => {
+import { StopCircle, Eye, EyeOff, ChevronLeft, ChevronRight, Download, Plus } from "lucide-react";const Dashboard = () => {
   const {
     ticketState,
     setInitialMessage,
@@ -78,36 +77,30 @@ const Dashboard = () => {
   };
 // Remplacez la fonction handleGeneratedFile dans Dashboard.tsx par :
 
-const handleFileGenerated = (file: File) => {
+const handleGeneratedFile = (file: File) => {
   console.log("Fichier généré dans Dashboard:", file.name);
   
-  // Fonction de retry améliorée avec plus de tentatives et délais progressifs
-  const attemptTransmission = (attempt: number = 1, maxAttempts: number = 20) => {
-    if (window.ticketUploadRef?.processGeneratedFile) {
-      console.log(`Transmission réussie à la tentative ${attempt}`);
-      window.ticketUploadRef.processGeneratedFile(file);
-      return;
-    }
-    
-    if (attempt < maxAttempts) {
-      console.log(`Tentative ${attempt}/${maxAttempts} - Référence non disponible, retry dans ${attempt * 100}ms`);
-      setTimeout(() => {
-        attemptTransmission(attempt + 1, maxAttempts);
-      }, attempt * 100); // Délai progressif
-    } else {
-      console.error("Impossible de transmettre le fichier après", maxAttempts, "tentatives");
-      
-      // Fallback : déclencher un événement personnalisé
-      console.log("Utilisation du fallback avec événement personnalisé");
-      const event = new CustomEvent('generatedFileReady', { 
-        detail: { file } 
-      });
-      window.dispatchEvent(event);
-    }
-  };
+  // Réinitialiser complètement l'état avant de traiter le nouveau fichier
+  setInitialMessage("");
+  setTicketIds(undefined);
+  setSearchResults(null);
+  setTicketData(null);
+  setLoadingAnalysis(false);
   
-  // Commencer les tentatives immédiatement
-  attemptTransmission();
+  // Transmettre directement le fichier avec un délai pour s'assurer de la stabilité
+  setTimeout(() => {
+    if (window.ticketUploadRef?.processGeneratedFile) {
+      console.log("Transmission du fichier à TicketUpload");
+      window.ticketUploadRef.processGeneratedFile(file);
+    } else {
+      console.warn("Référence ticketUploadRef non disponible - retry");
+      setTimeout(() => {
+        if (window.ticketUploadRef?.processGeneratedFile) {
+          window.ticketUploadRef.processGeneratedFile(file);
+        }
+      }, 1000);
+    }
+  }, 300);
 };
   
   const itemVariants = {
@@ -171,11 +164,23 @@ const handleFileGenerated = (file: File) => {
   )}>
   </h1>
   
-  <div className="flex gap-2">
+  <div className="flex gap-2 mt-3 mb-2">
     
-    <TicketFormDialog 
-  onFileGenerated={handleFileGenerated}
-  trigger={<Button>Créer un ticket</Button>}
+    <TicketFormDialog
+  onFileGenerated={handleGeneratedFile}
+  trigger={
+    <Button
+      variant="outline"
+      size="sm"
+      className={cn(
+        "flex items-center gap-2",
+        isDark ? "border-white/20 hover:bg-white/10" : "border-gray-300 hover:bg-gray-50"
+      )}
+    >
+      <Plus size={16} />
+      Créer un ticket
+    </Button>
+  }
 />
     <Button
       onClick={downloadTemplate}
@@ -201,7 +206,7 @@ const handleFileGenerated = (file: File) => {
                 animate={{ opacity: 1, x: historyPanelVisible ? 0 : -300 }}
                 transition={{ duration: 0.3 }}
                 className={cn(
-                  "md:w-72 lg:w-80 transition-all duration-300 absolute md:relative z-20",
+  "md:w-72 lg:w-80 transition-all duration-300 absolute md:relative z-20",
                   !historyPanelVisible && "md:hidden"
                 )}
               >
@@ -252,7 +257,7 @@ const handleFileGenerated = (file: File) => {
                     <TicketUpload
                       onFileUploaded={handleFileUploaded}
                       onTicketDataExtracted={handleTicketDataExtracted}
-                      onGeneratedFileReady={handleFileGenerated}
+                      onGeneratedFileReady={handleGeneratedFile}
                     />
                   </div>
                 </div>

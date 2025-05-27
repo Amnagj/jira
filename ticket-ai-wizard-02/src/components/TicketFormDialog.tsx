@@ -27,11 +27,11 @@ export const TicketFormDialog: React.FC<TicketFormDialogProps> = ({
   // Structure des champs avec leurs labels en français
   const ticketFields = [
     { key: 'key', label: 'Clé du ticket', type: 'text', required: true },
-    { key: 'type', label: 'Type', type: 'text', required: true },
+    { key: 'type', label: 'Type', type: 'select', options: ['Bug', 'Problem Report','Improvement','Anomaly','Incident Report','Service Request'] ,required: true },
     { key: 'summary', label: 'Résumé', type: 'text', required: true },
     { key: 'description', label: 'Description', type: 'textarea', required: true },
     { key: 'priority', label: 'Priorité', type: 'select', options: ['Low', 'Medium', 'High', 'Critical'] },
-    { key: 'status', label: 'Statut', type: 'select', options: ['Open', 'In Progress', 'Resolved', 'Closed'] },
+    { key: 'status', label: 'Statut', type: 'select', options: ['Open', 'In Progress','Pending'] },
     { key: 'assignee', label: 'Assigné à', type: 'text' },
     { key: 'reporter', label: 'Rapporteur', type: 'text' },
     { key: 'created_date', label: 'Date de création', type: 'date' },
@@ -59,16 +59,19 @@ export const TicketFormDialog: React.FC<TicketFormDialogProps> = ({
   };
 
 const handleFileGenerated = (file: File) => {
-  console.log("Fichier généré reçu dans le composant parent:", file.name);
+  console.log("Fichier généré dans TicketFormDialog:", file.name);
   
-  // Appeler la méthode globale pour traiter le fichier
-  if (window.ticketUploadRef?.processGeneratedFile) {
-    console.log("Appel de processGeneratedFile via la référence globale");
-    window.ticketUploadRef.processGeneratedFile(file);
-  } else {
-    console.error("Référence ticketUploadRef non trouvée");
-  }
+  // Fermer immédiatement le dialog
+  setOpen(false);
+  
+  // Délai pour s'assurer que le dialog est fermé avant de transmettre
+  setTimeout(() => {
+    setFormData({}); // Réinitialiser après fermeture
+    onFileGenerated(file);
+  }, 200);
 };
+
+
   const handleSubmit = () => {
   // Validation des champs requis
   const requiredFields = ticketFields.filter(field => field.required);
@@ -84,12 +87,10 @@ const handleFileGenerated = (file: File) => {
 };
 
 
-// Remplacez la fonction generateExcelFile dans TicketFormDialog.tsx par :
-
 const generateExcelFile = () => {
   try {
     console.log("Génération du fichier Excel avec les données:", formData);
-   
+    
     // Tous les headers du template original
     const headers = [
       "key", "type", "created_date", "updated_date", "Affects_Version", "fix_version",
@@ -104,28 +105,32 @@ const generateExcelFile = () => {
 
     // Créer une ligne de données avec les valeurs du formulaire
     const rowData = headers.map(header => {
-      const value = formData[header];
-      return value !== undefined && value !== null ? String(value) : '';
-    });
+  const value = formData[header];
+  // Pour les champs résolution et solution, forcer une valeur vide si non remplis
+  if ((header === 'resolution' || header === 'solution') && (!value || value.trim() === '')) {
+    return '';
+  }
+  return value !== undefined && value !== null ? String(value) : '';
+});
 
     console.log("Données du fichier Excel:", { headers, rowData });
 
     // Créer la feuille de calcul
     const worksheet = XLSX.utils.aoa_to_sheet([headers, rowData]);
-   
+    
     // Créer le classeur
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Ticket");
 
     // Convertir en buffer
     const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
-   
+    
     // Créer un blob et un fichier
     const blob = new Blob([excelBuffer], {
       type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     });
-   
-    const fileName = `ticket_${formData.key || 'nouveau'}_${Date.now()}.xlsx`;
+    
+    const fileName = `${formData.key || 'nouveau'}_${Date.now()}.xlsx`;
     const file = new File([blob], fileName, {
       type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     });
@@ -136,22 +141,14 @@ const generateExcelFile = () => {
       type: file.type
     });
 
-    // Fermer le dialog
-    setOpen(false);
-    setFormData({});
-   
-    // Attendre que le dialog se ferme complètement et que les composants se montent
-    setTimeout(() => {
-      console.log("Appel du callback onFileGenerated avec délai");
-      onFileGenerated(file);
-    }, 500); // Délai plus long pour s'assurer que les composants sont montés
-   
+    // Appeler directement handleFileGenerated au lieu d'onFileGenerated
+    handleFileGenerated(file);
+    
   } catch (error) {
     console.error('Erreur lors de la génération du fichier Excel:', error);
     alert('Erreur lors de la génération du fichier Excel: ' + (error as Error).message);
   }
-};
-  const renderField = (field: typeof ticketFields[0]) => {
+};  const renderField = (field: typeof ticketFields[0]) => {
     const value = formData[field.key] || '';
 
     switch (field.type) {
@@ -163,7 +160,7 @@ const generateExcelFile = () => {
             onChange={(e) => handleInputChange(field.key, e.target.value)}
             placeholder={`Entrez ${field.label.toLowerCase()}`}
             className={cn(
-              "min-h-[80px]",
+              "min-h-[80px] border-2",
               isDark ? "bg-gray-800 border-gray-600" : "bg-white border-gray-300"
             )}
           />
@@ -176,7 +173,7 @@ const generateExcelFile = () => {
             value={value}
             onChange={(e) => handleInputChange(field.key, e.target.value)}
             className={cn(
-              "w-full px-3 py-2 rounded-md border",
+              "w-full px-3 py-2 rounded-md border-2",
               isDark ? "bg-gray-800 border-gray-600 text-white" : "bg-white border-gray-300"
             )}
           >
@@ -195,8 +192,10 @@ const generateExcelFile = () => {
             value={value}
             onChange={(e) => handleInputChange(field.key, e.target.value)}
             placeholder={`Entrez ${field.label.toLowerCase()}`}
-            className={isDark ? "bg-gray-800 border-gray-600" : "bg-white border-gray-300"}
-          />
+className={cn(
+        "border-2", // border-2 ajouté
+        isDark ? "bg-gray-800 border-gray-600 focus:border-blue-500" : "bg-white border-gray-300 focus:border-blue-500"
+      )}          />
         );
       
       case 'date':
@@ -206,8 +205,10 @@ const generateExcelFile = () => {
             type="date"
             value={value}
             onChange={(e) => handleInputChange(field.key, e.target.value)}
-            className={isDark ? "bg-gray-800 border-gray-600" : "bg-white border-gray-300"}
-          />
+className={cn(
+        "border-2", // border-2 ajouté
+        isDark ? "bg-gray-800 border-gray-600 focus:border-blue-500" : "bg-white border-gray-300 focus:border-blue-500"
+      )}          />
         );
       
       default:
@@ -218,8 +219,10 @@ const generateExcelFile = () => {
             value={value}
             onChange={(e) => handleInputChange(field.key, e.target.value)}
             placeholder={`Entrez ${field.label.toLowerCase()}`}
-            className={isDark ? "bg-gray-800 border-gray-600" : "bg-white border-gray-300"}
-          />
+className={cn(
+        "border-2", // border-2 ajouté
+        isDark ? "bg-gray-800 border-gray-600 focus:border-blue-500" : "bg-white border-gray-300 focus:border-blue-500"
+      )}          />
         );
     }
   };
@@ -232,7 +235,7 @@ const generateExcelFile = () => {
             variant="outline"
             size="sm"
             className={cn(
-              "flex items-center gap-2",
+              "flex items-center gap-4",
               isDark ? "border-white/20 hover:bg-white/10" : "border-gray-300 hover:bg-gray-50"
             )}
           >
@@ -243,7 +246,7 @@ const generateExcelFile = () => {
       </DialogTrigger>
       
       <DialogContent className={cn(
-        "max-w-4xl max-h-[90vh] overflow-hidden",
+        "max-w-4xl max-h-[90vh] overflow-hidden ml-2 mt-2 ",
         isDark ? "bg-gray-900 border-gray-700" : "bg-white border-gray-200"
       )}>
         <DialogHeader>
@@ -256,8 +259,8 @@ const generateExcelFile = () => {
           </DialogTitle>
         </DialogHeader>
         
-        <ScrollArea className="max-h-[70vh] pr-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
+        <ScrollArea className="max-h-[70vh] pr-4 ">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4 ml-2 mr-2">
             {ticketFields.map((field) => (
               <div key={field.key} className={field.type === 'textarea' ? 'md:col-span-2' : ''}>
                 <Label 
